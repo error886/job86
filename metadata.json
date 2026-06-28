@@ -1,0 +1,10 @@
+{
+  "name": "Remix: 86Job",
+  "description": "86Job - Nền tảng tìm kiếm và tổng hợp việc làm thêm uy tín dành cho cộng đồng Việt Nam tại Hàn Quốc với AI Parser và bản đồ trực quan",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

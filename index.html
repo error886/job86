@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Fix for sandbox/iframe environments where window.fetch is getter-only and throws on assignment -->
+    <script>
+      (function() {
+        try {
+          var currentFetch = window.fetch;
+          var defineFetch = function(obj) {
+            if (!obj) return;
+            try {
+              Object.defineProperty(obj, 'fetch', {
+                get: function() {
+                  return currentFetch;
+                },
+                set: function(val) {
+                  currentFetch = val;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (err) {
+              try {
+                delete obj.fetch;
+                obj.fetch = currentFetch;
+              } catch (err2) {
+                console.warn('Could not redefine fetch on target object:', err2);
+              }
+            }
+          };
+          defineFetch(window);
+          defineFetch(self);
+          if (typeof globalThis !== 'undefined') {
+            defineFetch(globalThis);
+          }
+        } catch (e) {
+          console.warn('Sandbox fetch override patch failed:', e);
+        }
+      })();
+    </script>
+    <title>86Job - Việc làm thêm Hàn Quốc</title>
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

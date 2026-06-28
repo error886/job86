@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for user" },
+        "name": { "type": "string", "description": "Display name of the user" },
+        "email": { "type": "string", "description": "Email address of the user" },
+        "avatar": { "type": "string", "description": "URL to the user avatar" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Role of the user" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "ISO timestamp of user registration" }
+      },
+      "required": ["id", "name", "email", "avatar", "role", "createdAt"]
+    },
+    "Job": {
+      "title": "Job",
+      "description": "Job advertisement details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for job" },
+        "title": { "type": "string", "description": "Job title" },
+        "company": { "type": "string", "description": "Company or restaurant name" },
+        "salary": { "type": "integer", "description": "Salary rate in KRW" },
+        "salaryType": { "type": "string", "enum": ["Hourly", "Monthly"], "description": "Salary payment structure" },
+        "city": { "type": "string", "description": "City in South Korea" },
+        "district": { "type": "string", "description": "District or neighborhood" },
+        "address": { "type": "string", "description": "Exact physical address" },
+        "category": { "type": "string", "enum": ["Restaurant", "Cafe", "Factory", "Warehouse", "Convenience Store", "Office", "Other"], "description": "Job category classification" },
+        "workingTime": { "type": "string", "description": "Working days and hours description" },
+        "description": { "type": "string", "description": "Detailed description of the job" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "kakao": { "type": "string", "description": "Kakao ID for contact" },
+        "line": { "type": "string", "description": "Line ID for contact" },
+        "source": { "type": "string", "description": "Origin of the posting" },
+        "sourceUrl": { "type": "string", "description": "Source URL if scraped" },
+        "latitude": { "type": "number", "description": "Map latitude coordinate" },
+        "longitude": { "type": "number", "description": "Map longitude coordinate" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "Review status" },
+        "views": { "type": "integer", "description": "Number of job detail views" }
+      },
+      "required": ["id", "title", "company", "salary", "salaryType", "city", "district", "address", "category", "workingTime", "description", "phone", "source", "latitude", "longitude", "createdAt", "status", "views"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "Saved job by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for bookmark record" },
+        "userId": { "type": "string", "description": "Reference to the User ID" },
+        "jobId": { "type": "string", "description": "Reference to the Job ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when bookmarked" }
+      },
+      "required": ["id", "userId", "jobId", "createdAt"]
+    },
+    "CrawlerLog": {
+      "title": "CrawlerLog",
+      "description": "History log of web scraper or AI parser executions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for log record" },
+        "source": { "type": "string", "description": "Source name of the parser or scraper" },
+        "status": { "type": "string", "enum": ["success", "failed"], "description": "Execution status" },
+        "message": { "type": "string", "description": "Detail message about execution outcome" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Log timestamp" }
+      },
+      "required": ["id", "source", "status", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles collection"
+    },
+    "/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Job postings collection"
+    },
+    "/bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "Job bookmarking association map"
+    },
+    "/crawlerLogs/{logId}": {
+      "schema": "CrawlerLog",
+      "description": "Parsing and scraping history log"
+    }
+  }
+}

@@ -1,0 +1,146 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role check helper - Admin list check
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'lechidaicma@gmail.com' ||
+        request.auth.token.email == 'cuong.soft86@gmail.com'
+      );
+    }
+
+    // 2. Collection Rules
+    
+    // --- USERS COLLECTION ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role)
+      );
+      allow delete: if isAdmin();
+
+      function isValidUser(data) {
+        return data.keys().hasAll(['id', 'name', 'email', 'avatar', 'role', 'createdAt'])
+          && data.keys().size() == 6
+          && data.id == userId
+          && data.name is string && data.name.size() <= 100
+          && data.email is string && data.email.size() <= 128
+          && data.avatar is string && data.avatar.size() <= 512
+          && data.role in ['user', 'admin']
+          && data.createdAt is string;
+      }
+    }
+
+    // --- JOBS COLLECTION ---
+    match /jobs/{jobId} {
+      allow read: if true; // Public listings allowed
+      allow create: if isSignedIn() && isValidId(jobId) && isValidJob(incoming()) && (
+        isAdmin() || incoming().status == 'pending'
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          // Allow incrementing views or standard field updates if pending
+          isValidJob(incoming()) && (
+            // Regular user can only modify their own job if it is still pending
+            (existing().status == 'pending' && incoming().status == 'pending' && incoming().views == existing().views) ||
+            // View increment action
+            (incoming().diff(existing()).affectedKeys().hasOnly(['views']))
+          )
+        )
+      );
+      allow delete: if isAdmin();
+
+      function isValidJob(data) {
+        return data.keys().hasAll([
+          'id', 'title', 'company', 'salary', 'salaryType', 'city', 'district', 
+          'address', 'category', 'workingTime', 'description', 'phone', 
+          'source', 'latitude', 'longitude', 'createdAt', 'status', 'views'
+        ])
+          && data.keys().size() <= 21 // allowing optional kakao, line, sourceUrl
+          && data.id == jobId
+          && data.title is string && data.title.size() <= 200
+          && data.company is string && data.company.size() <= 100
+          && data.salary is int && data.salary >= 0 && data.salary <= 100000000
+          && data.salaryType in ['Hourly', 'Monthly']
+          && data.city is string && data.city.size() <= 100
+          && data.district is string && data.district.size() <= 100
+          && data.address is string && data.address.size() <= 256
+          && data.category in ['Restaurant', 'Cafe', 'Factory', 'Warehouse', 'Convenience Store', 'Office', 'Other']
+          && data.workingTime is string && data.workingTime.size() <= 200
+          && data.description is string && data.description.size() <= 5000
+          && data.phone is string && data.phone.size() <= 30
+          && data.source is string && data.source.size() <= 100
+          && data.latitude is number && data.longitude is number
+          && data.createdAt is string
+          && data.status in ['pending', 'approved', 'rejected']
+          && data.views is int && data.views >= 0;
+      }
+    }
+
+    // --- BOOKMARKS COLLECTION ---
+    match /bookmarks/{bookmarkId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(bookmarkId) && isValidBookmark(incoming()) && isOwner(incoming().userId);
+      allow delete: if isSignedIn() && (isAdmin() || isOwner(existing().userId));
+
+      function isValidBookmark(data) {
+        return data.keys().hasAll(['id', 'userId', 'jobId', 'createdAt'])
+          && data.keys().size() == 4
+          && data.id == bookmarkId
+          && data.userId is string
+          && data.jobId is string
+          && data.createdAt is string;
+      }
+    }
+
+    // --- CRAWLER LOGS COLLECTION ---
+    match /crawlerLogs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || isSignedIn(); // Crawler integrations can log
+      allow update, delete: if isAdmin();
+
+      function isValidCrawlerLog(data) {
+        return data.keys().hasAll(['id', 'source', 'status', 'message', 'createdAt'])
+          && data.keys().size() == 5
+          && data.id == logId
+          && data.source is string && data.source.size() <= 100
+          && data.status in ['success', 'failed']
+          && data.message is string && data.message.size() <= 1000
+          && data.createdAt is string;
+      }
+    }
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "name": "Nguyễn Văn Hải",
+      "email": "hai.nguyen@student.kr",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      "role": "user",
+      "createdAt": "2026-05-10T12:00:00.000Z"
+    },
+    {
+      "id": "u2",
+      "name": "Admin 86Job",
+      "email": "lechidaicma@gmail.com",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+      "role": "admin",
+      "createdAt": "2026-01-01T08:00:00.000Z"
+    },
+    {
+      "id": "u3",
+      "name": "Trần Thị Mai",
+      "email": "mai.tran@student.kr",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
+      "role": "user",
+      "createdAt": "2026-06-01T10:00:00.000Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "j1",
+      "title": "Nhân viên phục vụ quán lẩu nướng (주방/홀)",
+      "company": "Baekjeong BBQ Gangnam",
+      "salary": 11000,
+      "salaryType": "Hourly",
+      "city": "Seoul",
+      "district": "Gangnam-gu",
+      "address": "서울특별시 강남구 강nam-daero 94-gil 10",
+      "category": "Restaurant",
+      "workingTime": "18:00 ~ 23:00 (Thứ 2 đến Thứ 6)",
+      "description": "Tuyển du học sinh Việt Nam phục vụ bàn hoặc làm phụ bếp. Yêu cầu tiếng Hàn giao tiếp cơ bản (TOPIK 2 trở lên). Môi trường thân thiện, có hỗ trợ bữa ăn tối. Lương tăng theo năng lực.",
+      "phone": "010-1234-5678",
+      "kakao": "baekjeong_gangnam",
+      "source": "User",
+      "latitude": 37.498,
+      "longitude": 127.027,
+      "createdAt": "2026-06-25T14:30:00.000Z",
+      "status": "approved",
+      "views": 124
+    },
+    {
+      "id": "j2",
+      "title": "Part-time Pha chế & Thu ngân Cafe",
+      "company": "Compose Coffee Mapo",
+      "salary": 10500,
+      "salaryType": "Hourly",
+      "city": "Seoul",
+      "district": "Mapo-gu",
+      "address": "서울특별시 마포구 백범로 35",
+      "category": "Cafe",
+      "workingTime": "08:00 ~ 13:00 (Thứ 7 & Chủ Nhật)",
+      "description": "Cần tuyển 1 bạn du học sinh trực ca sáng cuối tuần. Công việc bao gồm pha chế các món nước cơ bản, thanh toán tại quầy và dọn dẹp quán. Tiếng Hàn TOPIK 3 trở lên vì cần giao tiếp với khách Hàn nhiều.",
+      "phone": "010-9876-5432",
+      "kakao": "compose_mapo",
+      "source": "Alba",
+      "sourceUrl": "https://www.albamon.com/recruit/view/compose-coffee",
+      "latitude": 37.556,
+      "longitude": 126.923,
+      "createdAt": "2026-06-26T09:15:00.000Z",
+      "status": "approved",
+      "views": 89
+    },
+    {
+      "id": "j3",
+      "title": "Công nhân đóng gói sản phẩm mỹ phẩm",
+      "company": "K-Beauty Packaging Factory",
+      "salary": 9860,
+      "salaryType": "Hourly",
+      "city": "Daejeon",
+      "district": "Yuseong-gu",
+      "address": "대전광역시 유성구 테크노2로 120",
+      "category": "Factory",
+      "workingTime": "09:00 ~ 18:00 (Thứ 2 đến Thứ 6)",
+      "description": "Tuyển lao động part-time/full-time làm việc tại xưởng đóng gói mỹ phẩm. Không yêu cầu tiếng Hàn, công việc đơn giản chỉ cần nhanh tay. Chấp nhận các bạn visa D2, D4 chăm chỉ, chịu khó.",
+      "phone": "010-4444-5555",
+      "source": "Karrot",
+      "latitude": 36.362,
+      "longitude": 127.341,
+      "createdAt": "2026-06-24T11:00:00.000Z",
+      "status": "approved",
+      "views": 210
+    },
+    {
+      "id": "j4",
+      "title": "Nhân viên soạn hàng kho Coupang (야간)",
+      "company": "Coupang Logistics Center Incheon",
+      "salary": 13500,
+      "salaryType": "Hourly",
+      "city": "Incheon",
+      "district": "Seo-gu",
+      "address": "인천광역시 서구 오류동 1650",
+      "category": "Warehouse",
+      "workingTime": "19:00 ~ 03:00 (Đăng ký theo ngày)",
+      "description": "Kho Coupang tuyển nhân viên soạn hàng ca đêm. Công việc bao gồm phân loại hàng hóa, đóng thùng hàng. Lương cao, có xe đưa đón từ ga lớn. Không yêu cầu tiếng Hàn cao, chỉ cần sức khỏe tốt.",
+      "phone": "010-1111-2222",
+      "source": "Alba",
+      "sourceUrl": "https://www.alba.co.kr/recruit/view/coupang-incheon",
+      "latitude": 37.456,
+      "longitude": 126.705,
+      "createdAt": "2026-06-26T22:45:00.000Z",
+      "status": "approved",
+      "views": 345
+    },
+    {
+      "id": "j5",
+      "title": "Nhân viên bán hàng GS25 ca đêm",
+      "company": "GS25 Tanbang-dong",
+      "salary": 10000,
+      "salaryType": "Hourly",
+      "city": "Daejeon",
+      "district": "Seo-gu",
+      "address": "대전광역시 서구 탄방로 55",
+      "category": "Convenience Store",
+      "workingTime": "22:00 ~ 06:00 (Thứ 3 & Thứ 5)",
+      "description": "Tuyển nhân viên trực đêm cửa hàng tiện lợi GS25. Yêu cầu tiếng Hàn giao tiếp tốt để giải quyết thanh toán, kiểm kho và nhận hàng hóa lúc sáng sớm. Ưu tiên các bạn sống gần khu vực Tanbang-dong.",
+      "phone": "010-8888-9999",
+      "kakao": "gs25_tanbang",
+      "source": "Karrot",
+      "latitude": 36.347,
+      "longitude": 127.389,
+      "createdAt": "2026-06-27T02:00:00.000Z",
+      "status": "approved",
+      "views": 64
+    },
+    {
+      "id": "j6",
+      "title": "Biên dịch viên tiếng Việt tại Văn phòng Du học",
+      "company": "K-Study Global Office",
+      "salary": 2200000,
+      "salaryType": "Monthly",
+      "city": "Seoul",
+      "district": "Mapo-gu",
+      "address": "서울특별시 마포구 신촌로 100",
+      "category": "Office",
+      "workingTime": "09:00 ~ 18:00 (Thứ 2 đến Thứ 6)",
+      "description": "Hỗ trợ dịch hồ sơ du học, viết nội dung fanpage tiếng Việt và tư vấn trực tiếp cho học sinh Việt Nam. Yêu cầu TOPIK 5 trở lên, sử dụng máy tính văn phòng thành thạo, cẩn thận, tỉ mỉ.",
+      "phone": "010-7777-8888",
+      "kakao": "kstudy_global",
+      "source": "User",
+      "latitude": 37.555,
+      "longitude": 126.936,
+      "createdAt": "2026-06-23T16:00:00.000Z",
+      "status": "approved",
+      "views": 180
+    },
+    {
+      "id": "j7",
+      "title": "[Tuyển gấp] Rửa bát và Phụ bếp quán canh xương",
+      "company": "Gamjatang Haeundae",
+      "salary": 12000,
+      "salaryType": "Hourly",
+      "city": "Busan",
+      "district": "Haeundae-gu",
+      "address": "부산광역시 해운대구 우동 540-1",
+      "category": "Restaurant",
+      "workingTime": "12:00 ~ 17:00 (Thứ Bảy, Chủ Nhật)",
+      "description": "Quán canh xương tuyết Haeundae cần tuyển gấp 1 bạn nam phụ bếp, rửa bát, bưng bê nồi lẩu cuối tuần. Tiếng Hàn cơ bản nghe hiểu lời chủ dặn là được. Công việc mệt nhưng chủ nhà hàng rất tốt tính, thường xuyên cho đồ ăn mang về.",
+      "phone": "010-3333-2222",
+      "source": "Facebook",
+      "sourceUrl": "https://facebook.com/groups/vietnamkrjobs/permalink/999111",
+      "latitude": 35.159,
+      "longitude": 129.161,
+      "createdAt": "2026-06-26T15:20:00.000Z",
+      "status": "pending",
+      "views": 42
+    }
+  ],
+  "bookmarks": [
+    {
+      "id": "b1",
+      "userId": "u1",
+      "jobId": "j1",
+      "createdAt": "2026-06-26T18:00:00.000Z"
+    },
+    {
+      "id": "b2",
+      "userId": "u1",
+      "jobId": "j4",
+      "createdAt": "2026-06-27T01:00:00.000Z"
+    }
+  ],
+  "crawlerLogs": [
+    {
+      "id": "l1",
+      "source": "Albamon",
+      "status": "success",
+      "message": "Quét thành công 45 công việc mới phù hợp với từ khóa \"D2/D4 visa allowed\".",
+      "createdAt": "2026-06-27T06:00:00.000Z"
+    },
+    {
+      "id": "l2",
+      "source": "Facebook Group (Du học sinh Hàn Quốc)",
+      "status": "success",
+      "message": "Phân tích thành công 12 bài đăng tuyển dụng tự động qua link Facebook.",
+      "createdAt": "2026-06-27T05:30:00.000Z"
+    },
+    {
+      "id": "l3",
+      "source": "Alba Heaven",
+      "status": "failed",
+      "message": "Lỗi timeout khi kết nối đến API mô phỏng của Alba Heaven.",
+      "createdAt": "2026-06-27T04:00:00.000Z"
+    },
+    {
+      "id": "l4",
+      "source": "Karrot Market (당근마켓)",
+      "status": "success",
+      "message": "Đã cập nhật vị trí và khoảng cách cho 8 công việc cafe/tiện lợi quanh Daejeon.",
+      "createdAt": "2026-06-27T03:00:00.000Z"
+    }
+  ]
+}
