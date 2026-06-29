@@ -7,6 +7,7 @@ import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import fs from 'fs';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { User, Job, Bookmark, CrawlerLog } from '../src/types';
 
 // Load config safely
@@ -61,6 +62,136 @@ if (shouldConnectFirebase) {
   } else {
     console.log('[Firebase] No Firebase configuration found. Running with local db.json storage only.');
   }
+}
+
+// --- SUPABASE CONFIGURATION ---
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+export let supabase: any = null;
+
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('[Supabase] Client initialized successfully.');
+  } catch (err: any) {
+    console.error('[Supabase] Initialization error:', err.message);
+  }
+} else {
+  console.log('[Supabase] No Supabase credentials found. Running in hybrid/fallback mode.');
+}
+
+// --- SUPABASE DATA MAPPING HELPERS ---
+function mapJobToDb(job: Job): any {
+  return {
+    id: job.id,
+    title: job.title,
+    company: job.company,
+    salary: job.salary,
+    salary_type: job.salaryType,
+    city: job.city,
+    district: job.district,
+    address: job.address,
+    category: job.category,
+    working_time: job.workingTime,
+    description: job.description,
+    phone: job.phone || null,
+    kakao: job.kakao || null,
+    line: job.line || null,
+    source: job.source,
+    source_url: job.sourceUrl || null,
+    latitude: job.latitude,
+    longitude: job.longitude,
+    created_at: job.createdAt,
+    status: job.status,
+    views: job.views
+  };
+}
+
+function mapJobFromDb(row: any): Job {
+  return {
+    id: row.id,
+    title: row.title,
+    company: row.company,
+    salary: Number(row.salary),
+    salaryType: row.salary_type,
+    city: row.city,
+    district: row.district,
+    address: row.address,
+    category: row.category,
+    workingTime: row.working_time,
+    description: row.description,
+    phone: row.phone || undefined,
+    kakao: row.kakao || undefined,
+    line: row.line || undefined,
+    source: row.source,
+    sourceUrl: row.source_url || undefined,
+    latitude: Number(row.latitude),
+    longitude: Number(row.longitude),
+    createdAt: row.created_at,
+    status: row.status,
+    views: Number(row.views || 0)
+  };
+}
+
+function mapBookmarkToDb(b: Bookmark): any {
+  return {
+    id: b.id,
+    user_id: b.userId,
+    job_id: b.jobId,
+    created_at: b.createdAt
+  };
+}
+
+function mapBookmarkFromDb(row: any): Bookmark {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    jobId: row.job_id,
+    createdAt: row.created_at
+  };
+}
+
+function mapUserToDb(u: User): any {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    avatar: u.avatar || null,
+    role: u.role,
+    created_at: u.createdAt
+  };
+}
+
+function mapUserFromDb(row: any): User {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    avatar: row.avatar || undefined,
+    role: row.role as 'user' | 'admin',
+    createdAt: row.created_at
+  };
+}
+
+function mapLogToDb(l: CrawlerLog): any {
+  return {
+    id: l.id,
+    source: l.source,
+    status: l.status,
+    message: l.message,
+    created_at: l.createdAt
+  };
+}
+
+function mapLogFromDb(row: any): CrawlerLog {
+  return {
+    id: row.id,
+    source: row.source,
+    status: row.status as 'success' | 'failed',
+    message: row.message,
+    createdAt: row.created_at
+  };
 }
 
 const DATA_PATH = process.env.DATA_PATH || process.cwd();
@@ -391,6 +522,28 @@ export async function initializeDb(): Promise<void> {
 
 // JOBS APIs
 export async function getJobs(): Promise<Job[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const jobs = (data || []).map(mapJobFromDb);
+
+      // Sync with local db.json
+      const local = readLocalDb();
+      local.jobs = jobs;
+      writeLocalDb(local);
+
+      return jobs;
+    } catch (err: any) {
+      console.warn('[Supabase] getJobs warning (falling back to Firestore/local DB):', err.message);
+    }
+  }
+
   if (!db) {
     const local = readLocalDb();
     return local.jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -416,6 +569,38 @@ export async function getJobs(): Promise<Job[]> {
 }
 
 export async function getJobById(id: string): Promise<Job | undefined> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        const local = readLocalDb();
+        return local.jobs.find(j => j.id === id);
+      }
+
+      const job = mapJobFromDb(data);
+      const newViews = (job.views || 0) + 1;
+
+      // Update views in background / async
+      supabase
+        .from('jobs')
+        .update({ views: newViews })
+        .eq('id', id)
+        .then(({ error: uErr }: any) => {
+          if (uErr) console.warn('[Supabase] Failed to update views:', uErr.message);
+        });
+
+      return { ...job, views: newViews };
+    } catch (err: any) {
+      console.warn('[Supabase] getJobById warning (falling back to Firestore/local DB):', err.message);
+    }
+  }
+
   if (!db) {
     const local = readLocalDb();
     const jobIndex = local.jobs.findIndex(j => j.id === id);
@@ -467,7 +652,19 @@ export async function addJob(job: Omit<Job, 'id' | 'createdAt' | 'views'>): Prom
   local.jobs.push(newJob);
   writeLocalDb(local);
 
-  // 2. Try saving to Firestore if available
+  // 2. Try saving to Supabase if available
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .insert(mapJobToDb(newJob));
+      if (error) throw error;
+    } catch (err: any) {
+      console.warn('[Supabase] addJob warning (saved to local db.json only):', err.message);
+    }
+  }
+
+  // 3. Try saving to Firestore if available
   if (db) {
     try {
       await db.collection('jobs').doc(id).set(newJob);
@@ -486,6 +683,24 @@ export async function updateJobStatus(id: string, status: 'approved' | 'rejected
   if (jobIndex !== -1) {
     local.jobs[jobIndex].status = status;
     writeLocalDb(local);
+  }
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        return mapJobFromDb(data);
+      }
+    } catch (err: any) {
+      console.warn('[Supabase] updateJobStatus warning (updated in local db.json only):', err.message);
+    }
   }
 
   if (!db) {
@@ -510,6 +725,26 @@ export async function deleteJob(id: string): Promise<boolean> {
   local.jobs = local.jobs.filter(j => j.id !== id);
   local.bookmarks = local.bookmarks.filter(b => b.jobId !== id);
   writeLocalDb(local);
+
+  if (supabase) {
+    try {
+      // Delete bookmarks first in Supabase
+      await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('job_id', id);
+
+      // Delete job in Supabase
+      const { error } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.warn('[Supabase] deleteJob warning (deleted from local db.json only):', err.message);
+    }
+  }
 
   if (!db) {
     return true;
@@ -536,6 +771,28 @@ export async function deleteJob(id: string): Promise<boolean> {
 
 // BOOKMARKS
 export async function getBookmarks(userId: string): Promise<Bookmark[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const bookmarks = (data || []).map(mapBookmarkFromDb);
+
+      // Sync with local db.json
+      const local = readLocalDb();
+      local.bookmarks = local.bookmarks.filter(b => b.userId !== userId).concat(bookmarks);
+      writeLocalDb(local);
+
+      return bookmarks;
+    } catch (err: any) {
+      console.warn('[Supabase] getBookmarks warning (falling back to Firestore/local DB):', err.message);
+    }
+  }
+
   if (!db) {
     const local = readLocalDb();
     return local.bookmarks.filter(b => b.userId === userId);
@@ -583,6 +840,32 @@ export async function toggleBookmark(userId: string, jobId: string): Promise<{ b
     isBookmarked = true;
   }
 
+  if (supabase) {
+    try {
+      if (existingIndex !== -1) {
+        const { error } = await supabase
+          .from('bookmarks')
+          .delete()
+          .eq('user_id', userId)
+          .eq('job_id', jobId);
+        if (error) throw error;
+      } else if (newBookmarkId) {
+        const newBookmark: Bookmark = {
+          id: newBookmarkId,
+          userId,
+          jobId,
+          createdAt: new Date().toISOString()
+        };
+        const { error } = await supabase
+          .from('bookmarks')
+          .insert(mapBookmarkToDb(newBookmark));
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      console.warn('[Supabase] toggleBookmark warning (updated in local db.json only):', err.message);
+    }
+  }
+
   if (!db) {
     return { bookmarked: isBookmarked, bookmarkId: newBookmarkId };
   }
@@ -618,6 +901,27 @@ export async function toggleBookmark(userId: string, jobId: string): Promise<{ b
 
 // USERS AUTH
 export async function getUsers(): Promise<User[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
+
+      if (error) throw error;
+
+      const users = (data || []).map(mapUserFromDb);
+
+      // Sync with local db.json
+      const local = readLocalDb();
+      local.users = users;
+      writeLocalDb(local);
+
+      return users;
+    } catch (err: any) {
+      console.warn('[Supabase] getUsers warning (falling back to Firestore/local DB):', err.message);
+    }
+  }
+
   if (!db) {
     const local = readLocalDb();
     return local.users;
@@ -665,6 +969,17 @@ export async function loginOrRegister(email: string, name: string, avatar: strin
   local.users.push(newUser);
   writeLocalDb(local);
 
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .insert(mapUserToDb(newUser));
+      if (error) throw error;
+    } catch (err: any) {
+      console.warn('[Supabase] loginOrRegister warning (saved to local db.json only):', err.message);
+    }
+  }
+
   // Try Firestore write if available
   if (db) {
     try {
@@ -679,6 +994,27 @@ export async function loginOrRegister(email: string, name: string, avatar: strin
 
 // CRAWLER LOGS
 export async function getCrawlerLogs(): Promise<CrawlerLog[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('crawler_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const logs = (data || []).map(mapLogFromDb);
+
+      const local = readLocalDb();
+      local.crawlerLogs = logs;
+      writeLocalDb(local);
+
+      return logs;
+    } catch (err: any) {
+      console.warn('[Supabase] getCrawlerLogs warning (falling back to Firestore/local DB):', err.message);
+    }
+  }
+
   if (!db) {
     const local = readLocalDb();
     return local.crawlerLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -720,6 +1056,40 @@ export async function addCrawlerLog(source: string, status: 'success' | 'failed'
     local.crawlerLogs = local.crawlerLogs.slice(0, 50);
   }
   writeLocalDb(local);
+
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('crawler_logs')
+        .insert(mapLogToDb(newLog));
+      if (error) throw error;
+
+      // Optional async pruning in Supabase
+      supabase
+        .from('crawler_logs')
+        .select('id', { count: 'exact', head: true })
+        .then(({ count, error: countErr }: any) => {
+          if (!countErr && count && count > 50) {
+            supabase
+              .from('crawler_logs')
+              .select('id')
+              .order('created_at', { ascending: false })
+              .range(50, 100)
+              .then(({ data: oldLogs }: any) => {
+                if (oldLogs && oldLogs.length > 0) {
+                  const idsToDelete = oldLogs.map((l: any) => l.id);
+                  supabase
+                    .from('crawler_logs')
+                    .delete()
+                    .in('id', idsToDelete);
+                }
+              });
+          }
+        });
+    } catch (err: any) {
+      console.warn('[Supabase] addCrawlerLog warning (saved to local db.json only):', err.message);
+    }
+  }
 
   // Try Firestore write if available
   if (db) {
