@@ -294,6 +294,20 @@
       "status": "success",
       "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương.",
       "createdAt": "2026-07-26T18:18:28.435Z"
+    },
+    {
+      "id": "l_ooovzsgzu",
+      "source": "AI Parser (Gemini SDK)",
+      "status": "success",
+      "message": "Sử dụng thành công Gemini AI SDK để phân tích tin tuyển dụng.",
+      "createdAt": "2026-07-26T18:42:36.770Z"
+    },
+    {
+      "id": "l_va4ghb4qz",
+      "source": "AI Parser (Gemini SDK)",
+      "status": "success",
+      "message": "Sử dụng thành công Gemini AI SDK để phân tích tin tuyển dụng.",
+      "createdAt": "2026-07-26T18:53:28.831Z"
     }
   ]
 }

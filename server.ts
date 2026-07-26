@@ -27,7 +27,7 @@ import { JobCategory, Job } from './src/types';
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Body parser
 app.use(express.json());
@@ -522,11 +522,9 @@ Rules for extraction:
    - 'Office': admin, translator, consulting, văn phòng, biên dịch, trợ lý, 사무, 번역
    - 'Other': any other job.`;
 
-  // Determine OpenRouter API Key (either from env or fallback to provided user key)
- const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+  // Determine OpenRouter API Key (from environment variable)
   const openRouterKey = process.env.OPENROUTER_API_KEY || 
-    (process.env.GEMINI_API_KEY?.startsWith('sk-or-v1-') ? process.env.GEMINI_API_KEY : null) || 
-    userProvidedOpenRouterKey;
+    (process.env.GEMINI_API_KEY?.startsWith('sk-or-v1-') ? process.env.GEMINI_API_KEY : null);
 
   // 1. Try OpenRouter API first if key is available
   if (openRouterKey) {
