@@ -523,7 +523,7 @@ Rules for extraction:
    - 'Other': any other job.`;
 
   // Determine OpenRouter API Key (either from env or fallback to provided user key)
-  const userProvidedOpenRouterKey = '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';
+ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY || 
     (process.env.GEMINI_API_KEY?.startsWith('sk-or-v1-') ? process.env.GEMINI_API_KEY : null) || 
     userProvidedOpenRouterKey;
