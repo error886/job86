@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Briefcase, Map, Heart, Send, MessageSquare, Shield, LogIn, LogOut, Menu, X, User } from 'lucide-react';
+import { Briefcase, Map, Heart, Send, MessageSquare, Shield, LogIn, LogOut, Menu, X, User, BarChart3 } from 'lucide-react';
 import { User as UserType } from '../types';
 import Logo from './Logo';
 
@@ -15,6 +15,7 @@ interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenContact: () => void;
+  onOpenAuthModal?: (tab?: 'login' | 'register') => void;
 }
 
 export default function Header({ 
@@ -23,26 +24,17 @@ export default function Header({
   onLogout, 
   activeTab, 
   setActiveTab,
-  onOpenContact
+  onOpenContact,
+  onOpenAuthModal
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showLoginDropdown, setShowLoginDropdown] = useState(false);
 
   const menuItems = [
     { id: 'jobs', label: 'Bản đồ việc làm', icon: Map },
+    { id: 'chart', label: 'Biểu đồ lương 📊', icon: BarChart3 },
     { id: 'parse', label: 'Phân tích AI ✨', icon: Send },
     { id: 'bookmarks', label: 'Yêu thích', icon: Heart },
   ];
-
-  const handleQuickLogin = (role: 'user' | 'admin') => {
-    if (role === 'admin') {
-      onLogin('lechidaicma@gmail.com', 'Admin 86Job', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', 'admin');
-    } else {
-      onLogin('sinhvien.hanquoc@student.kr', 'Nguyễn Minh Anh', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', 'user');
-    }
-    setShowLoginDropdown(false);
-    setMobileMenuOpen(false);
-  };
 
   return (
     <header className="sticky top-0 z-[1000] w-full bg-white/80 border-b border-slate-200/80 backdrop-blur-md shadow-sm transition-all">
@@ -149,47 +141,23 @@ export default function Header({
                 </div>
               </div>
             ) : (
-              <div className="relative">
+              <div className="flex items-center gap-2">
                 <button
                   id="btn-login-trigger"
-                  onClick={() => setShowLoginDropdown(!showLoginDropdown)}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-5 py-2.5 rounded-full shadow-md hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer"
+                  onClick={() => onOpenAuthModal?.('login')}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer"
                 >
-                  <LogIn className="w-4 h-4" />
-                  Đăng nhập
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Đăng nhập</span>
                 </button>
-
-                {showLoginDropdown && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200/80 py-2 z-[2000] animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-4 py-1.5 border-b border-slate-100/50 mb-1">
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Chọn tài khoản giả lập
-                      </span>
-                    </div>
-                    <button
-                      id="btn-login-student"
-                      onClick={() => handleQuickLogin('user')}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 font-medium transition-colors text-left cursor-pointer"
-                    >
-                      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=50" className="w-6 h-6 rounded-full" />
-                      <div>
-                        <p className="font-bold text-xs">Du học sinh</p>
-                        <p className="text-[10px] text-slate-400 leading-none mt-0.5">Quick Student Login</p>
-                      </div>
-                    </button>
-                    <button
-                      id="btn-login-admin"
-                      onClick={() => handleQuickLogin('admin')}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-600 font-medium transition-colors text-left cursor-pointer"
-                    >
-                      <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=50" className="w-6 h-6 rounded-full" />
-                      <div>
-                        <p className="font-bold text-xs text-purple-700">Admin</p>
-                        <p className="text-[10px] text-slate-400 leading-none mt-0.5">Quick Admin Login</p>
-                      </div>
-                    </button>
-                  </div>
-                )}
+                
+                <button
+                  onClick={() => onOpenAuthModal?.('register')}
+                  className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-full border border-slate-200 transition-all cursor-pointer"
+                >
+                  <User className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Đăng ký</span>
+                </button>
               </div>
             )}
           </div>
@@ -286,19 +254,25 @@ export default function Header({
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs font-bold text-gray-400 px-4 uppercase tracking-wider mb-2">Đăng nhập nhanh (Simulate)</p>
+                <p className="text-xs font-bold text-gray-400 px-4 uppercase tracking-wider mb-2">Tài khoản</p>
                 <div className="grid grid-cols-2 gap-2 px-2">
                   <button
-                    onClick={() => handleQuickLogin('user')}
+                    onClick={() => {
+                      if (onOpenAuthModal) onOpenAuthModal('login');
+                      setMobileMenuOpen(false);
+                    }}
                     className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-blue-200 text-blue-600 bg-blue-50 text-xs font-bold cursor-pointer"
                   >
-                    Du học sinh
+                    Đăng nhập
                   </button>
                   <button
-                    onClick={() => handleQuickLogin('admin')}
-                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-purple-200 text-purple-600 bg-purple-50 text-xs font-bold cursor-pointer"
+                    onClick={() => {
+                      if (onOpenAuthModal) onOpenAuthModal('register');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 text-slate-700 bg-slate-100 text-xs font-bold cursor-pointer"
                   >
-                    Admin
+                    Đăng ký
                   </button>
                 </div>
               </div>

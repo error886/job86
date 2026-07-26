@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, MapPin, Briefcase, Filter, Heart, SlidersHorizontal, 
   Map as MapIcon, ChevronRight, BookmarkCheck, CheckCircle2, 
-  AlertCircle, Sparkles, Loader2, ArrowRight, Columns
+  AlertCircle, Sparkles, Loader2, ArrowRight, Columns, BarChart3
 } from 'lucide-react';
 import Header from './components/Header';
 import MapContainer from './components/MapContainer';
@@ -18,22 +18,71 @@ import AIParsingTool from './components/AIParsingTool';
 import AdminPanel from './components/AdminPanel';
 import ContactModal from './components/ContactModal';
 import Logo from './components/Logo';
+import SalaryChart from './components/SalaryChart';
+import AuthModal from './components/AuthModal';
 import { Job, User, Bookmark } from './types';
+import { auth, db, logoutFirebase } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [adminJobsList, setAdminJobsList] = useState<Job[]>([]); // Full list including pending for Admin
   const [loading, setLoading] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<'list' | 'chart'>('list');
   
-  // Auth state
-  const [currentUser, setCurrentUser] = useState<User | null>({
-    id: 'u1',
-    name: 'Nguyễn Văn Hải',
-    email: 'hai.nguyen@student.kr',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    role: 'user',
-    createdAt: new Date('2026-05-10T12:00:00Z').toISOString()
+  // Auth state (Default to guest / null)
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('86job_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return null; }
+    }
+    return null;
   });
+
+  // Auth Modal State
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [authPromptMessage, setAuthPromptMessage] = useState<string>('');
+
+  const openAuthModal = (tab: 'login' | 'register' = 'login', promptMessage: string = '') => {
+    setAuthModalTab(tab);
+    setAuthPromptMessage(promptMessage);
+    setAuthModalOpen(true);
+  };
+
+  // Sync Firebase Auth state with App state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            const userData = snap.data() as User;
+            const fullUser = { ...userData, id: fbUser.uid };
+            setCurrentUser(fullUser);
+            localStorage.setItem('86job_user', JSON.stringify(fullUser));
+          } else {
+            const newUser: User = {
+              id: fbUser.uid,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Người dùng',
+              email: fbUser.email || '',
+              avatar: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fbUser.email || 'user')}`,
+              role: (fbUser.email === 'lechidaicma@gmail.com' || fbUser.email === 'cuong.soft86@gmail.com') ? 'admin' : 'user',
+              createdAt: new Date().toISOString()
+            };
+            setCurrentUser(newUser);
+            localStorage.setItem('86job_user', JSON.stringify(newUser));
+          }
+        } catch (e) {
+          console.warn("Firebase Auth state fetch error:", e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Bookmark state
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
@@ -273,9 +322,7 @@ export default function App() {
       e.stopPropagation();
     }
     if (!currentUser) {
-      // Alert standard login or open header login
-      const btn = document.getElementById('btn-login-trigger');
-      if (btn) btn.click();
+      openAuthModal('login', '🔒 Vui lòng đăng nhập để lưu công việc này vào danh sách yêu thích!');
       return;
     }
 
@@ -301,22 +348,28 @@ export default function App() {
     }
   };
 
-  // Auth logins
+  // Auth logins & persistance
   const handleLogin = (email: string, name: string, avatar: string, role: 'user' | 'admin') => {
-    setCurrentUser({
-      id: email === 'lechidaicma@gmail.com' ? 'u2' : 'u3',
+    const user: User = {
+      id: auth.currentUser?.uid || (email === 'lechidaicma@gmail.com' ? 'u2' : `u_${Date.now()}`),
       name,
       email,
       avatar,
       role,
       createdAt: new Date().toISOString()
-    });
+    };
+    setCurrentUser(user);
+    localStorage.setItem('86job_user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
+    logoutFirebase();
     setCurrentUser(null);
+    localStorage.removeItem('86job_user');
     setBookmarkedIds([]);
-    setActiveTab('home');
+    if (activeTab === 'bookmarks' || activeTab === 'admin') {
+      setActiveTab('jobs');
+    }
   };
 
   // MODERATOR ACTIONS
@@ -378,6 +431,15 @@ export default function App() {
     }
   };
 
+  const handleNavTabChange = (tab: string) => {
+    if (tab === 'chart') {
+      setActiveTab('jobs');
+      setSidebarTab('chart');
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans selection:bg-blue-100 selection:text-blue-800">
       
@@ -386,9 +448,10 @@ export default function App() {
         currentUser={currentUser}
         onLogin={handleLogin}
         onLogout={handleLogout}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        activeTab={sidebarTab === 'chart' && activeTab === 'jobs' ? 'chart' : activeTab}
+        setActiveTab={handleNavTabChange}
         onOpenContact={() => setContactOpen(true)}
+        onOpenAuthModal={(tab) => openAuthModal(tab || 'login')}
       />
 
       {/* DETAILED OVERLAY DRAWER */}
@@ -450,23 +513,46 @@ export default function App() {
             </div>
             
             {/* Sidebar Branding & Summary */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 gap-2">
               <div>
                 <div className="flex items-center gap-1.5">
-                  <Logo className="h-7 w-auto" />
+                  <Logo className="h-6.5 w-auto" />
                   <span className="text-[10px] bg-blue-50 text-blue-600 font-extrabold px-1.5 py-0.5 rounded border border-blue-200/30">Hàn Quốc</span>
                 </div>
-                <p className="text-[10.5px] text-slate-400 font-medium mt-1">Bản đồ việc làm thêm cho cộng đồng Việt</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Bản đồ & Biểu đồ lương du học sinh</p>
               </div>
-              <span className="text-xs font-bold text-slate-900 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full shadow-sm">
-                {jobs.length} tin tuyển
-              </span>
+
+              {/* Sidebar View Switcher */}
+              <div className="flex bg-slate-200/60 p-0.5 rounded-xl text-[10.5px] font-bold border border-slate-200/80">
+                <button
+                  onClick={() => setSidebarTab('list')}
+                  className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                    sidebarTab === 'list'
+                      ? 'bg-white text-blue-600 shadow-xs font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Briefcase className="w-3 h-3" />
+                  <span>Tin tuyển</span>
+                </button>
+                <button
+                  onClick={() => setSidebarTab('chart')}
+                  className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                    sidebarTab === 'chart'
+                      ? 'bg-white text-blue-600 shadow-xs font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <BarChart3 className="w-3 h-3 text-amber-500" />
+                  <span>Phân bổ lương</span>
+                </button>
+              </div>
             </div>
 
             {/* Sidebar Search and Filters panel */}
-            <div className="p-4 border-b border-slate-100 space-y-3 bg-white">
+            <div className="p-3.5 border-b border-slate-100 space-y-2.5 bg-white">
               {/* Search bar */}
-              <div className="relative flex items-center bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 focus-within:border-blue-500/80 focus-within:bg-white transition-all shadow-sm">
+              <div className="relative flex items-center bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 focus-within:border-blue-500/80 focus-within:bg-white transition-all shadow-sm">
                 <Search className="w-4 h-4 text-slate-400 flex-shrink-0 mr-2" />
                 <input
                   type="text"
@@ -525,14 +611,24 @@ export default function App() {
               </div>
 
               {/* Collapsible toggle for Advanced Filters (Salary) */}
-              <div className="pt-1">
+              <div className="pt-0.5 flex items-center justify-between">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                  className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <SlidersHorizontal className="w-3 h-3" />
                   <span>Lọc chi tiết (Lương, ca làm)...</span>
                 </button>
+
+                {sidebarTab === 'list' && (
+                  <button
+                    onClick={() => setSidebarTab('chart')}
+                    className="flex items-center gap-1 text-[10.5px] font-extrabold text-amber-600 hover:text-amber-700 cursor-pointer bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/50"
+                  >
+                    <BarChart3 className="w-3 h-3" />
+                    <span>Biểu đồ lương →</span>
+                  </button>
+                )}
               </div>
 
               {showFilters && (
@@ -564,7 +660,7 @@ export default function App() {
               )}
 
               {/* Quick suggestion tags inside sidebar */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 pt-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 pt-0.5">
                 <span className="font-semibold">Tìm nhanh:</span>
                 <button
                   onClick={() => handleQuickSearch('식당', 'Daejeon')}
@@ -587,37 +683,76 @@ export default function App() {
               </div>
             </div>
 
-            {/* Sidebar Results List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-24 gap-2">
-                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                  <span className="text-xs text-slate-400 font-bold">Đang tải dữ liệu...</span>
-                </div>
-              ) : displayedJobs.length === 0 ? (
-                <div className="bg-white rounded-2xl p-8 text-center border border-slate-200/80 shadow-sm space-y-2">
-                  <p className="text-xs font-bold text-slate-700">Không tìm thấy bài tuyển dụng phù hợp.</p>
-                  <p className="text-[11px] text-slate-400">Hãy thử xóa bộ lọc, tìm nhanh, hoặc di chuyển vùng bản đồ.</p>
-                  <button 
-                    onClick={handleResetFilters}
-                    className="text-xs font-bold text-blue-600 underline cursor-pointer mt-1"
-                  >
-                    Xóa tất cả bộ lọc
-                  </button>
-                </div>
+            {/* Sidebar Main Content (Results List OR Recharts Salary Chart) */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-slate-50/50">
+              {sidebarTab === 'chart' ? (
+                <SalaryChart 
+                  jobs={jobs}
+                  onSelectCategory={(cat) => {
+                    setCategoryFilter(cat);
+                    setSidebarTab('list');
+                  }}
+                  onSelectCity={(city) => {
+                    setCityFilter(city);
+                    setSidebarTab('list');
+                  }}
+                  currentCityFilter={cityFilter}
+                  currentCategoryFilter={categoryFilter}
+                />
               ) : (
-                <div className="space-y-3 pb-8">
-                  {displayedJobs.map(job => (
-                    <JobCard 
-                      key={job.id}
-                      job={job}
-                      isBookmarked={bookmarkedIds.includes(job.id)}
-                      onToggleBookmark={handleToggleBookmark}
-                      onSelect={(j) => setSelectedJob(j)}
-                      isSelected={selectedJob?.id === job.id}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Banner trigger to Chart */}
+                  <div 
+                    onClick={() => setSidebarTab('chart')}
+                    className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-2xl shadow-md flex items-center justify-between cursor-pointer transition-all group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-white/20 backdrop-blur-xs rounded-xl group-hover:scale-105 transition-transform">
+                        <BarChart3 className="w-4 h-4 text-amber-300" />
+                      </div>
+                      <div>
+                        <span className="text-[11.5px] font-black block leading-tight">
+                          Phân bổ & So sánh Mức lương 📊
+                        </span>
+                        <span className="text-[10px] text-blue-100 font-medium">
+                          Xem thu nhập trung bình theo ngành & khu vực
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-blue-200 group-hover:translate-x-1 transition-transform" />
+                  </div>
+
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-2">
+                      <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                      <span className="text-xs text-slate-400 font-bold">Đang tải dữ liệu...</span>
+                    </div>
+                  ) : displayedJobs.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-8 text-center border border-slate-200/80 shadow-sm space-y-2">
+                      <p className="text-xs font-bold text-slate-700">Không tìm thấy bài tuyển dụng phù hợp.</p>
+                      <p className="text-[11px] text-slate-400">Hãy thử xóa bộ lọc, tìm nhanh, hoặc di chuyển vùng bản đồ.</p>
+                      <button 
+                        onClick={handleResetFilters}
+                        className="text-xs font-bold text-blue-600 underline cursor-pointer mt-1"
+                      >
+                        Xóa tất cả bộ lọc
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pb-8">
+                      {displayedJobs.map(job => (
+                        <JobCard 
+                          key={job.id}
+                          job={job}
+                          isBookmarked={bookmarkedIds.includes(job.id)}
+                          onToggleBookmark={handleToggleBookmark}
+                          onSelect={(j) => setSelectedJob(j)}
+                          isSelected={selectedJob?.id === job.id}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -849,6 +984,7 @@ export default function App() {
               currentUser={currentUser}
               onJobCreated={handleNewJobCreated}
               setActiveTab={setActiveTab}
+              onOpenAuthModal={(tab, prompt) => openAuthModal(tab || 'login', prompt)}
             />
           )}
 
@@ -863,17 +999,30 @@ export default function App() {
               </div>
 
               {!currentUser ? (
-                <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-md space-y-4">
-                  <p className="text-sm font-bold text-slate-700">Vui lòng đăng nhập để lưu trữ công việc yêu thích.</p>
-                  <button
-                    onClick={() => {
-                      const btn = document.getElementById('btn-login-trigger');
-                      if (btn) btn.click();
-                    }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-6 rounded-full shadow cursor-pointer transition-colors"
-                  >
-                    Đăng nhập nhanh
-                  </button>
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-md space-y-4 max-w-md mx-auto my-6">
+                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto border border-blue-100/80 shadow-xs">
+                    <Heart className="w-7 h-7 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800">Bạn chưa đăng nhập</h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Đăng nhập hoặc tạo tài khoản để lưu trữ các việc làm thêm tốt nhất, xem lại trên mọi thiết bị.
+                    </p>
+                  </div>
+                  <div className="flex justify-center gap-2.5 pt-2">
+                    <button
+                      onClick={() => openAuthModal('login', '🔒 Đăng nhập để xem công việc đã lưu')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-5 rounded-full shadow-md cursor-pointer transition-all"
+                    >
+                      Đăng nhập
+                    </button>
+                    <button
+                      onClick={() => openAuthModal('register')}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-5 rounded-full border border-slate-200 cursor-pointer transition-all"
+                    >
+                      Đăng ký ngay
+                    </button>
+                  </div>
                 </div>
               ) : bookmarkedIds.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-md space-y-2">
@@ -933,6 +1082,15 @@ export default function App() {
           </div>
         </footer>
       )}
+
+      {/* AUTHENTICATION MODAL */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialTab={authModalTab}
+        onLoginSuccess={handleLogin}
+        promptMessage={authPromptMessage}
+      />
 
     </div>
   );

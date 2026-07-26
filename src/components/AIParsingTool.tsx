@@ -4,16 +4,18 @@
  */
 
 import React, { useState } from 'react';
-import { Send, Sparkles, Plus, AlertCircle, RefreshCw, FileText, CheckCircle, Info } from 'lucide-react';
+import { Send, Sparkles, Plus, AlertCircle, RefreshCw, FileText, CheckCircle, Info, Edit3, Wand2, Lock, LogIn, UserPlus } from 'lucide-react';
 import { JobCategory, Job } from '../types';
 
 interface AIParsingToolProps {
   currentUser: any;
   onJobCreated: (newJob: Job) => void;
   setActiveTab: (tab: string) => void;
+  onOpenAuthModal?: (tab?: 'login' | 'register', prompt?: string) => void;
 }
 
-export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab }: AIParsingToolProps) {
+export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab, onOpenAuthModal }: AIParsingToolProps) {
+  const [mode, setMode] = useState<'ai' | 'manual'>('ai');
   const [rawText, setRawText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,22 @@ export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab 
   const [description, setDescription] = useState('');
 
   const [formVisible, setFormVisible] = useState(false);
+
+  // Switch to Manual Mode
+  const handleOpenManualForm = () => {
+    setMode('manual');
+    setFormVisible(true);
+    setError(null);
+    setWarning(null);
+    setParseMethod(null);
+  };
+
+  // Switch to AI Mode
+  const handleOpenAIMode = () => {
+    setMode('ai');
+    setError(null);
+    setWarning(null);
+  };
 
   // Pre-configured templates for easy testing
   const templates = [
@@ -185,26 +203,101 @@ export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab 
           : 'Gửi bài đăng thành công! Tin tuyển dụng của bạn đang ở trạng thái Chờ phê duyệt từ Admin.'
       );
       
-      // Reset
+      // Reset form fields
       setRawText('');
-      setFormVisible(false);
+      setTitle('');
+      setCompany('');
+      setDistrict('');
+      setAddress('');
+      setWorkingTime('');
+      setDescription('');
+      setPhone('');
+      setKakao('');
+      setLine('');
+      if (mode === 'ai') {
+        setFormVisible(false);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setError(err.message || 'Lỗi khi lưu bài đăng.');
     }
   };
 
+  if (!currentUser) {
+    return (
+      <div className="max-w-2xl mx-auto my-12 animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl p-8 sm:p-12 text-center space-y-6">
+          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto border border-blue-100 shadow-sm">
+            <Lock className="w-8 h-8 text-blue-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-display text-xl sm:text-2xl font-extrabold text-slate-900">
+              Yêu cầu đăng nhập tài khoản
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-lg mx-auto">
+              Bạn cần đăng nhập tài khoản 86Job để sử dụng tính năng <strong className="text-slate-800">Đăng tin tuyển dụng (AI & Nhập thủ công)</strong>. Điều này giúp bảo vệ uy tín bài đăng và thông tin liên hệ cho cộng đồng du học sinh.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => onOpenAuthModal?.('login', '🔒 Vui lòng đăng nhập để tạo bài đăng tuyển dụng!')}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3.5 px-6 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Đăng nhập ngay</span>
+            </button>
+            <button
+              onClick={() => onOpenAuthModal?.('register')}
+              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-3.5 px-6 rounded-full border border-slate-200 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4 text-blue-600" />
+              <span>Tạo tài khoản mới</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-200">
       
-      {/* Title & Introduction */}
-      <div className="text-center space-y-2">
+      {/* Title & Mode Switcher */}
+      <div className="text-center space-y-4">
         <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">
-          Hệ thống Đăng tin tuyển dụng bằng <span className="text-blue-600">Trí tuệ nhân tạo (AI Parser)</span>
+          Hệ thống Đăng tin tuyển dụng <span className="text-blue-600">86Job</span>
         </h1>
         <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto">
-          Dán một đường dẫn Facebook, tin nhắn KakaoTalk hoặc văn bản thô bất kỳ. Hệ thống AI của 86Job sẽ tự động nhận diện địa điểm, mức lương, ngành nghề và số điện thoại chỉ trong 1 giây!
+          Tạo bài đăng nhanh chóng bằng Trí tuệ nhân tạo (AI) tự động trích xuất thông tin, hoặc tự điền biểu mẫu thủ công.
         </p>
+
+        {/* Mode Toggle Buttons */}
+        <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200/80 shadow-xs">
+          <button
+            type="button"
+            onClick={handleOpenAIMode}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              mode === 'ai'
+                ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            <span>Đăng tin bằng AI (Tự động)</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenManualForm}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+              mode === 'manual'
+                ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Edit3 className="w-4 h-4 text-slate-600" />
+            <span>Nhập thủ công (Form)</span>
+          </button>
+        </div>
       </div>
 
       {successMsg && (
@@ -230,62 +323,138 @@ export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab 
         </div>
       )}
 
-      {/* Main Parser Container */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
-        
-        {/* Left Input Field */}
-        <div className="md:col-span-7 p-6 sm:p-8 space-y-6 border-b md:border-b-0 md:border-r border-slate-100">
-          <div className="flex justify-between items-center">
-            <span className="flex items-center gap-1.5 text-sm font-bold text-slate-900 font-display uppercase tracking-wider">
-              <FileText className="w-4 h-4 text-blue-500" />
-              Nội dung tuyển dụng thô
-            </span>
-            <span className="text-xs text-slate-400">Yêu cầu ít nhất 10 ký tự</span>
+      {/* Mode AI Parser Box */}
+      {mode === 'ai' && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
+          
+          {/* Left Input Field */}
+          <div className="md:col-span-7 p-6 sm:p-8 space-y-6 border-b md:border-b-0 md:border-r border-slate-100">
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-1.5 text-sm font-bold text-slate-900 font-display uppercase tracking-wider">
+                <FileText className="w-4 h-4 text-blue-500" />
+                Nội dung tuyển dụng thô
+              </span>
+              <span className="text-xs text-slate-400">Yêu cầu ít nhất 10 ký tự</span>
+            </div>
+
+            <textarea
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              placeholder="Dán nội dung bài tuyển dụng hoặc link vào đây... Ví dụ: 'Tuyển phục vụ bàn quán cà phê ở Seoul Mapo-gu...'"
+              className="w-full h-56 p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition-all resize-none text-sm leading-relaxed"
+            />
+
+            {/* Quick Paste Templates */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Bài viết mẫu (Thử nhanh)</p>
+              <div className="flex flex-wrap gap-2">
+                {templates.map((tpl, i) => (
+                  <button
+                    key={i}
+                    id={`btn-template-${i}`}
+                    onClick={() => handleApplyTemplate(tpl.text)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-[11px] font-semibold text-slate-600 rounded-full transition-colors cursor-pointer border border-slate-200/40"
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Triggers */}
+            <div className="space-y-2">
+              <button
+                id="btn-parse-ai"
+                onClick={handleParseText}
+                disabled={parsing}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-sm py-3.5 px-6 rounded-full shadow-md shadow-blue-500/10 hover:shadow-lg disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {parsing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>AI đang phân tích dữ liệu...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Phân tích bằng AI ✨</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenManualForm}
+                className="w-full text-center text-xs font-bold text-slate-500 hover:text-blue-600 py-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Hoặc chuyển sang nhập thông tin thủ công</span>
+              </button>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-700 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {warning && (
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2 text-amber-800 text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <span>{warning}</span>
+              </div>
+            )}
           </div>
 
-          <textarea
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-            placeholder="Dán nội dung bài tuyển dụng hoặc link vào đây... Ví dụ: 'Tuyển phục vụ bàn quán cà phê ở Seoul Mapo-gu...'"
-            className="w-full h-56 p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition-all resize-none text-sm leading-relaxed"
-          />
+          {/* Right Info Box */}
+          <div className="md:col-span-5 p-6 sm:p-8 bg-slate-50/50 flex flex-col justify-between">
+            <div className="space-y-4">
+              <h3 className="font-display text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-amber-500" />
+                Hướng dẫn AI Parser
+              </h3>
+              <ul className="space-y-3.5 text-xs text-slate-500 leading-relaxed list-disc list-inside">
+                <li>Bạn có thể copy bài đăng từ các <strong className="text-slate-800">Hội nhóm Facebook</strong>, tin nhắn Kakao, hoặc văn bản tự nhập.</li>
+                <li>Hệ thống tự động quy đổi địa danh Hàn Quốc (ví dụ: "탄방동" → Daejeon Tanbang-dong, "신촌" → Seoul Mapo-gu).</li>
+                <li>Lương tự động chuyển đổi sang số nguyên và phân tách đơn vị theo giờ (Hourly) hoặc tháng (Monthly).</li>
+                <li>Nhận diện chính xác 6 loại ngành nghề cốt lõi cho du học sinh Việt Nam.</li>
+              </ul>
+            </div>
 
-          {/* Quick Paste Templates */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Bài viết mẫu (Thử nhanh)</p>
-            <div className="flex flex-wrap gap-2">
-              {templates.map((tpl, i) => (
-                <button
-                  key={i}
-                  id={`btn-template-${i}`}
-                  onClick={() => handleApplyTemplate(tpl.text)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-[11px] font-semibold text-slate-600 rounded-full transition-colors cursor-pointer border border-slate-200/40"
-                >
-                  {tpl.label}
-                </button>
-              ))}
+            <div className="mt-8 pt-6 border-t border-slate-200/80">
+              {parseMethod ? (
+                <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl space-y-1">
+                  <p className="text-[10px] font-bold text-blue-500 uppercase">Trạng thái phân tích</p>
+                  <p className="text-xs font-bold text-blue-900">
+                    Phân tích bởi: <span className="text-blue-600 font-extrabold">{parseMethod}</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400">Đã bóc tách thành công dữ liệu có cấu trúc JSON.</p>
+                </div>
+              ) : (
+                <div className="text-center py-4 border-2 border-dashed border-slate-200 rounded-xl">
+                  <span className="text-xs text-slate-400 font-medium block">Form cấu trúc sẽ hiển thị sau khi AI chạy</span>
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Action Trigger */}
-          <button
-            id="btn-parse-ai"
-            onClick={handleParseText}
-            disabled={parsing}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-sm py-3.5 px-6 rounded-full shadow-md shadow-blue-500/10 hover:shadow-lg disabled:opacity-50 transition-all cursor-pointer"
-          >
-            {parsing ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>AI đang phân tích dữ liệu...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>Phân tích bằng AI ✨</span>
-              </>
+      {/* Job Entry Form (Shown in 'manual' mode OR when AI parsing finishes in 'ai' mode) */}
+      {(mode === 'manual' || (mode === 'ai' && formVisible)) && (
+        <form onSubmit={handleSubmitJob} className="bg-white rounded-2xl border border-slate-200/80 shadow-xl p-6 sm:p-8 space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+            <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+              <Edit3 className="w-5 h-5 text-blue-600" />
+              <span>{mode === 'manual' ? 'Điền thông tin tuyển dụng thủ công' : 'Kiểm tra và chuẩn hóa thông tin tuyển dụng'}</span>
+            </h3>
+            {mode === 'ai' && (
+              <span className="text-xs text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
+                ✨ Đã trích xuất bởi AI
+              </span>
             )}
-          </button>
+          </div>
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-700 text-xs font-semibold">
@@ -293,55 +462,6 @@ export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab 
               <span>{error}</span>
             </div>
           )}
-
-          {warning && (
-            <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2 text-amber-800 text-xs">
-              <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-              <span>{warning}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Right Info Box */}
-        <div className="md:col-span-5 p-6 sm:p-8 bg-slate-50/50 flex flex-col justify-between">
-          <div className="space-y-4">
-            <h3 className="font-display text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Info className="w-4 h-4 text-amber-500" />
-              Hướng dẫn AI Parser
-            </h3>
-            <ul className="space-y-3.5 text-xs text-slate-500 leading-relaxed list-disc list-inside">
-              <li>Bạn có thể copy bài đăng từ các <strong className="text-slate-800">Hội nhóm Facebook</strong>, tin nhắn Kakao, hoặc văn bản tự nhập.</li>
-              <li>Hệ thống tự động quy đổi địa danh Hàn Quốc (ví dụ: "탄방동" → Daejeon Tanbang-dong, "신촌" → Seoul Mapo-gu).</li>
-              <li>Lương tự động chuyển đổi sang số nguyên và phân tách đơn vị theo giờ (Hourly) hoặc tháng (Monthly).</li>
-              <li>Nhận diện chính xác 6 loại ngành nghề cốt lõi cho du học sinh Việt Nam.</li>
-            </ul>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-slate-200/80">
-            {parseMethod ? (
-              <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl space-y-1">
-                <p className="text-[10px] font-bold text-blue-500 uppercase">Trạng thái phân tích</p>
-                <p className="text-xs font-bold text-blue-900">
-                  Phân tích bởi: <span className="text-blue-600 font-extrabold">{parseMethod}</span>
-                </p>
-                <p className="text-[10px] text-slate-400">Đã bóc tách thành công dữ liệu có cấu trúc JSON.</p>
-              </div>
-            ) : (
-              <div className="text-center py-4 border-2 border-dashed border-slate-200 rounded-xl">
-                <span className="text-xs text-slate-400 font-medium block">Form cấu trúc sẽ hiển thị sau khi AI chạy</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Editable Form after AI runs */}
-      {formVisible && (
-        <form onSubmit={handleSubmitJob} className="bg-white rounded-2xl border border-slate-200/80 shadow-xl p-6 sm:p-8 space-y-6 animate-in slide-in-from-bottom-4 duration-300">
-          <h3 className="font-display text-lg font-extrabold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-emerald-500" />
-            Kiểm tra và chuẩn hóa thông tin tuyển dụng trước khi đăng
-          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
@@ -404,7 +524,7 @@ export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab 
                 <input
                   type="number"
                   value={salary}
-                  onChange={(e) => setSalary(parseInt(e.target.value, 10))}
+                  onChange={(e) => setSalary(parseInt(e.target.value, 10) || 0)}
                   required
                   className="flex-1 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition-all text-sm font-extrabold"
                 />
@@ -501,6 +621,7 @@ export default function AIParsingTool({ currentUser, onJobCreated, setActiveTab 
                 onChange={(e) => setDescription(e.target.value)}
                 required
                 rows={5}
+                placeholder="Mô tả công việc, môi trường làm việc, yêu cầu tiếng Hàn (TOPIK) hoặc kinh nghiệm..."
                 className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition-all text-sm leading-relaxed"
               />
             </div>

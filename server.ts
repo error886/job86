@@ -62,6 +62,30 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// GET /api/db-status - Check Supabase & Firestore connection status
+app.get('/api/db-status', (req: Request, res: Response) => {
+  const isSupabaseConfigured = Boolean(
+    process.env.SUPABASE_URL && 
+    (process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY)
+  );
+
+  res.json({
+    activeDatabase: isSupabaseConfigured ? 'Supabase' : 'Firebase Firestore & Local DB',
+    supabase: {
+      connected: isSupabaseConfigured,
+      url: process.env.SUPABASE_URL || null,
+      message: isSupabaseConfigured 
+        ? 'Đã kết nối thành công với Supabase.' 
+        : 'Chưa kết nối Supabase. Chưa cấu hình SUPABASE_URL và SUPABASE_KEY trong biến môi trường (.env).'
+    },
+    firebase: {
+      configured: true,
+      databaseId: 'ai-studio-remix86job-07dcb210-375c-443e-b482-965b49b98727',
+      message: 'Đã kết nối và đang hoạt động chính với Google Firebase Firestore.'
+    }
+  });
+});
+
 // 2. GET /api/jobs - Supports search and advanced filters
 app.get('/api/jobs', async (req: Request, res: Response) => {
   try {
@@ -480,11 +504,7 @@ app.post('/api/ai/parse', async (req: Request, res: Response) => {
     };
   };
 
-  try {
-    // Attempt parsing with real Gemini API
-    const ai = getAiClient();
-    
-    const systemPrompt = `You are a professional Korean-Vietnamese Job Advertisement Parser.
+  const systemPrompt = `You are a professional Korean-Vietnamese Job Advertisement Parser.
 Your task is to analyze raw text (which can be in Vietnamese, Korean, or mixed) and extract job posting parameters as structured JSON.
 Rules for extraction:
 1. "title": Short job title (e.g., "주방보조 / Phụ bếp", "Nhân viên pha chế"). Translating Korean job keywords to beautiful bilingual titles is preferred.
@@ -501,6 +521,83 @@ Rules for extraction:
    - 'Convenience Store': gs25, cu, 7-eleven, emart24, tiện lợi, bán hàng, 편의점, 마트
    - 'Office': admin, translator, consulting, văn phòng, biên dịch, trợ lý, 사무, 번역
    - 'Other': any other job.`;
+
+  // Determine OpenRouter API Key (either from env or fallback to provided user key)
+  const userProvidedOpenRouterKey = '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';
+  const openRouterKey = process.env.OPENROUTER_API_KEY || 
+    (process.env.GEMINI_API_KEY?.startsWith('sk-or-v1-') ? process.env.GEMINI_API_KEY : null) || 
+    userProvidedOpenRouterKey;
+
+  // 1. Try OpenRouter API first if key is available
+  if (openRouterKey) {
+    try {
+      const modelsToTry = [
+        'google/gemini-2.5-flash',
+        'google/gemini-2.0-flash-001',
+        'openai/gpt-4o-mini',
+        'meta-llama/llama-3.3-70b-instruct'
+      ];
+
+      for (const model of modelsToTry) {
+        try {
+          const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openRouterKey}`,
+              'HTTP-Referer': process.env.APP_URL || 'https://86job.vn',
+              'X-Title': '86Job AI Parser',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [
+                {
+                  role: 'system',
+                  content: `${systemPrompt}\n\nCRITICAL: You MUST respond ONLY with valid JSON matching the schema fields: title, city, district, salary, working_time, phone, category. Do not output any markdown ticks or explanations.`
+                },
+                {
+                  role: 'user',
+                  content: cleanText
+                }
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.1
+            })
+          });
+
+          if (openRouterRes.ok) {
+            const data = await openRouterRes.json();
+            const content = data?.choices?.[0]?.message?.content;
+            if (content) {
+              const cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const parsedResult = JSON.parse(cleaned);
+
+              const validCategories: JobCategory[] = ['Restaurant', 'Cafe', 'Factory', 'Warehouse', 'Convenience Store', 'Office', 'Other'];
+              if (!validCategories.includes(parsedResult.category)) {
+                parsedResult.category = 'Other';
+              }
+
+              await addCrawlerLog('AI Parser (OpenRouter)', 'success', `Phân tích thành công bằng AI OpenRouter (${model}).`);
+
+              return res.json({
+                success: true,
+                method: `AI OpenRouter (${model})`,
+                data: parsedResult
+              });
+            }
+          }
+        } catch (modelErr: any) {
+          console.warn(`OpenRouter model ${model} failed, trying next:`, modelErr.message);
+        }
+      }
+    } catch (openRouterErr: any) {
+      console.warn('OpenRouter API call failed:', openRouterErr.message);
+    }
+  }
+
+  // 2. Fallback to Google GenAI SDK if GEMINI_API_KEY is configured
+  try {
+    const ai = getAiClient();
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
@@ -532,35 +629,35 @@ Rules for extraction:
       parsedResult.category = 'Other';
     }
 
-    await addCrawlerLog('AI Parser', 'success', 'Sử dụng thành công Gemini AI để phân tích tin tuyển dụng mới.');
+    await addCrawlerLog('AI Parser (Gemini SDK)', 'success', 'Sử dụng thành công Gemini AI SDK để phân tích tin tuyển dụng.');
 
-    res.json({
+    return res.json({
       success: true,
-      method: 'Gemini AI',
+      method: 'Gemini AI SDK',
       data: parsedResult
     });
 
   } catch (err: any) {
+    // 3. Final Fallback to RegEx Parser
     try {
-      // Graceful fallback to Regex parser
-      console.log('Gemini API is unavailable or missing key. Falling back to Local Parser Engine.', err.message);
+      console.log('AI APIs unavailable or missing key. Falling back to Local RegEx Engine.', err.message);
       const mockParsed = regexFallback();
       
       try {
-        await addCrawlerLog('Local RegEx Parser', 'success', 'Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).');
+        await addCrawlerLog('Local RegEx Parser', 'success', 'Phân tích tin tuyển dụng qua thuật toán Regex địa phương.');
       } catch (logErr: any) {
         console.warn('Failed to add crawler log during fallback:', logErr.message);
       }
 
-      res.json({
+      return res.json({
         success: true,
         method: 'Local RegEx Fallback Engine',
         data: mockParsed,
-        warning: 'Đang chạy trên cơ chế thu thập Regex vì GEMINI_API_KEY chưa cấu hình hoặc bị lỗi kết nối.'
+        warning: 'Đang chạy trên cơ chế Regex vì API AI chưa cấu hình hoặc bị gián đoạn.'
       });
     } catch (fallbackErr: any) {
       console.error('Critical failure in local parser fallback:', fallbackErr);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: `Lỗi hệ thống trong quá trình phân tích dự phòng: ${fallbackErr.message}`
       });

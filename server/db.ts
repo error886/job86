@@ -3,70 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { User, Job, Bookmark, CrawlerLog } from '../src/types';
 
-// Load config safely
-let firebaseConfig: any = null;
-try {
-  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-  if (fs.existsSync(configPath)) {
-    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  }
-} catch (e) {
-  console.log('[Firebase] Warning: No firebase-applet-config.json file found. Checking environment variables...');
-}
-
-const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig?.projectId;
-const databaseId = process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID || firebaseConfig?.firestoreDatabaseId;
-
-export let db: any = null;
-
-const isGoogleCloud = !!process.env.K_SERVICE || !!process.env.GOOGLE_CLOUD_PROJECT || !!process.env.GAE_ENV;
-const hasServiceAccount = !!process.env.FIREBASE_SERVICE_ACCOUNT;
-const shouldConnectFirebase = !!projectId && (isGoogleCloud || hasServiceAccount || process.env.FORCE_FIREBASE === 'true');
-
-if (shouldConnectFirebase) {
-  try {
-    if (getApps().length === 0) {
-      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-      if (serviceAccountJson) {
-        try {
-          const serviceAccount = JSON.parse(serviceAccountJson);
-          initializeApp({
-            credential: cert(serviceAccount),
-            projectId: projectId,
-          });
-          console.log('[Firebase] Initialized with Service Account JSON.');
-        } catch (credErr: any) {
-          console.error('[Firebase] Failed to load Service Account JSON, falling back to default:', credErr.message);
-          initializeApp({ projectId });
-        }
-      } else {
-        initializeApp({ projectId });
-      }
-    }
-    db = getFirestore(getApp(), databaseId);
-    console.log('[Firebase] Firestore initialized successfully for project:', projectId, 'database:', databaseId || '(default)');
-  } catch (err: any) {
-    console.warn('[Firebase] Initialization warning (falling back to local db.json):', err.message);
-    db = null;
-  }
-} else {
-  if (projectId) {
-    console.log('[Firebase] Firebase configuration found but credentials or GCP environment is missing. Skipping Firestore to prevent timeouts. Falling back to local db.json.');
-  } else {
-    console.log('[Firebase] No Firebase configuration found. Running with local db.json storage only.');
-  }
-}
-
 // --- SUPABASE CONFIGURATION ---
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
 export let supabase: any = null;
 
@@ -78,7 +22,7 @@ if (supabaseUrl && supabaseKey) {
     console.error('[Supabase] Initialization error:', err.message);
   }
 } else {
-  console.log('[Supabase] No Supabase credentials found. Running in hybrid/fallback mode.');
+  console.log('[Supabase] No Supabase credentials found. Running with local db.json storage fallback.');
 }
 
 // --- SUPABASE DATA MAPPING HELPERS ---
@@ -468,56 +412,7 @@ export async function initializeDb(): Promise<void> {
       crawlerLogs: DEFAULT_CRAWLER_LOGS
     });
   }
-
-  if (!db) {
-    console.log('[Database] Running in Local Storage Mode (using db.json).');
-    return;
-  }
-
-  try {
-    const jobsSnapshot = await db.collection('jobs').limit(1).get();
-    if (jobsSnapshot.empty) {
-      console.log('[Firestore] Database is empty. Seeding default data...');
-      
-      // Seed users
-      const usersBatch = db.batch();
-      DEFAULT_USERS.forEach(user => {
-        const userRef = db.collection('users').doc(user.id);
-        usersBatch.set(userRef, user);
-      });
-      await usersBatch.commit();
-      
-      // Seed jobs
-      const jobsBatch = db.batch();
-      DEFAULT_JOBS.forEach(job => {
-        const jobRef = db.collection('jobs').doc(job.id);
-        jobsBatch.set(jobRef, job);
-      });
-      await jobsBatch.commit();
-
-      // Seed bookmarks
-      const bookmarksBatch = db.batch();
-      DEFAULT_BOOKMARKS.forEach(b => {
-        const bRef = db.collection('bookmarks').doc(b.id);
-        bookmarksBatch.set(bRef, b);
-      });
-      await bookmarksBatch.commit();
-
-      // Seed crawler logs
-      const logsBatch = db.batch();
-      DEFAULT_CRAWLER_LOGS.forEach(log => {
-        const logRef = db.collection('crawlerLogs').doc(log.id);
-        logsBatch.set(logRef, log);
-      });
-      await logsBatch.commit();
-
-      console.log('[Firestore] Seed data populated successfully!');
-    } else {
-      console.log('[Firestore] Database already has data. Skipping seed.');
-    }
-  } catch (error) {
-    console.warn('[Firestore] Initialization warning (falling back to local db.json):', error instanceof Error ? error.message : error);
-  }
+  console.log('[Database] Local fallback storage initialized.');
 }
 
 // JOBS APIs
@@ -540,32 +435,12 @@ export async function getJobs(): Promise<Job[]> {
 
       return jobs;
     } catch (err: any) {
-      console.warn('[Supabase] getJobs warning (falling back to Firestore/local DB):', err.message);
+      console.warn('[Supabase] getJobs warning (falling back to local DB):', err.message);
     }
   }
 
-  if (!db) {
-    const local = readLocalDb();
-    return local.jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-  try {
-    const snapshot = await db.collection('jobs').get();
-    const jobs: Job[] = [];
-    snapshot.forEach(doc => {
-      jobs.push(doc.data() as Job);
-    });
-    
-    // Sync with local db.json
-    const local = readLocalDb();
-    local.jobs = jobs;
-    writeLocalDb(local);
-
-    return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  } catch (err) {
-    console.warn('[Firestore] getJobs warning (falling back to local db.json):', err instanceof Error ? err.message : err);
-    const local = readLocalDb();
-    return local.jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
+  const local = readLocalDb();
+  return local.jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function getJobById(id: string): Promise<Job | undefined> {
@@ -597,45 +472,18 @@ export async function getJobById(id: string): Promise<Job | undefined> {
 
       return { ...job, views: newViews };
     } catch (err: any) {
-      console.warn('[Supabase] getJobById warning (falling back to Firestore/local DB):', err.message);
+      console.warn('[Supabase] getJobById warning (falling back to local DB):', err.message);
     }
   }
 
-  if (!db) {
-    const local = readLocalDb();
-    const jobIndex = local.jobs.findIndex(j => j.id === id);
-    if (jobIndex === -1) return undefined;
-    
-    // Update local views count
-    local.jobs[jobIndex].views = (local.jobs[jobIndex].views || 0) + 1;
-    writeLocalDb(local);
-    return local.jobs[jobIndex];
-  }
-  try {
-    const docRef = db.collection('jobs').doc(id);
-    const docSnap = await docRef.get();
-    if (!docSnap.exists) {
-      // Check local db.json
-      const local = readLocalDb();
-      return local.jobs.find(j => j.id === id);
-    }
-    
-    const job = docSnap.data() as Job;
-    const newViews = (job.views || 0) + 1;
-    await docRef.update({ views: newViews });
-    
-    return { ...job, views: newViews };
-  } catch (err) {
-    console.warn('[Firestore] getJobById warning (falling back to local db.json):', err instanceof Error ? err.message : err);
-    const local = readLocalDb();
-    const jobIndex = local.jobs.findIndex(j => j.id === id);
-    if (jobIndex === -1) return undefined;
-    
-    // Update local views count
-    local.jobs[jobIndex].views = (local.jobs[jobIndex].views || 0) + 1;
-    writeLocalDb(local);
-    return local.jobs[jobIndex];
-  }
+  const local = readLocalDb();
+  const jobIndex = local.jobs.findIndex(j => j.id === id);
+  if (jobIndex === -1) return undefined;
+  
+  // Update local views count
+  local.jobs[jobIndex].views = (local.jobs[jobIndex].views || 0) + 1;
+  writeLocalDb(local);
+  return local.jobs[jobIndex];
 }
 
 export async function addJob(job: Omit<Job, 'id' | 'createdAt' | 'views'>): Promise<Job> {
@@ -661,15 +509,6 @@ export async function addJob(job: Omit<Job, 'id' | 'createdAt' | 'views'>): Prom
       if (error) throw error;
     } catch (err: any) {
       console.warn('[Supabase] addJob warning (saved to local db.json only):', err.message);
-    }
-  }
-
-  // 3. Try saving to Firestore if available
-  if (db) {
-    try {
-      await db.collection('jobs').doc(id).set(newJob);
-    } catch (err) {
-      console.warn('[Firestore] addJob warning (saved to local db.json only):', err instanceof Error ? err.message : err);
     }
   }
 
@@ -703,20 +542,7 @@ export async function updateJobStatus(id: string, status: 'approved' | 'rejected
     }
   }
 
-  if (!db) {
-    return jobIndex !== -1 ? local.jobs[jobIndex] : undefined;
-  }
-
-  // Try update in Firestore
-  try {
-    const docRef = db.collection('jobs').doc(id);
-    await docRef.update({ status });
-    const updatedSnap = await docRef.get();
-    return updatedSnap.data() as Job;
-  } catch (err) {
-    console.warn('[Firestore] updateJobStatus warning (updated in local db.json only):', err instanceof Error ? err.message : err);
-    return jobIndex !== -1 ? local.jobs[jobIndex] : undefined;
-  }
+  return jobIndex !== -1 ? local.jobs[jobIndex] : undefined;
 }
 
 export async function deleteJob(id: string): Promise<boolean> {
@@ -746,27 +572,7 @@ export async function deleteJob(id: string): Promise<boolean> {
     }
   }
 
-  if (!db) {
-    return true;
-  }
-
-  // Try Firestore delete
-  try {
-    await db.collection('jobs').doc(id).delete();
-    
-    // Also delete bookmarks associated with this job
-    const bookmarksSnap = await db.collection('bookmarks').where('jobId', '==', id).get();
-    const batch = db.batch();
-    bookmarksSnap.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
-
-    return true;
-  } catch (err) {
-    console.warn('[Firestore] deleteJob warning (deleted from local db.json only):', err instanceof Error ? err.message : err);
-    return true; // Return true because local delete succeeded
-  }
+  return true;
 }
 
 // BOOKMARKS
@@ -789,32 +595,12 @@ export async function getBookmarks(userId: string): Promise<Bookmark[]> {
 
       return bookmarks;
     } catch (err: any) {
-      console.warn('[Supabase] getBookmarks warning (falling back to Firestore/local DB):', err.message);
+      console.warn('[Supabase] getBookmarks warning (falling back to local DB):', err.message);
     }
   }
 
-  if (!db) {
-    const local = readLocalDb();
-    return local.bookmarks.filter(b => b.userId === userId);
-  }
-  try {
-    const snapshot = await db.collection('bookmarks').where('userId', '==', userId).get();
-    const bookmarks: Bookmark[] = [];
-    snapshot.forEach(doc => {
-      bookmarks.push(doc.data() as Bookmark);
-    });
-
-    // Sync with local db.json
-    const local = readLocalDb();
-    local.bookmarks = local.bookmarks.filter(b => b.userId !== userId).concat(bookmarks);
-    writeLocalDb(local);
-
-    return bookmarks;
-  } catch (err) {
-    console.warn('[Firestore] getBookmarks warning (falling back to local db.json):', err instanceof Error ? err.message : err);
-    const local = readLocalDb();
-    return local.bookmarks.filter(b => b.userId === userId);
-  }
+  const local = readLocalDb();
+  return local.bookmarks.filter(b => b.userId === userId);
 }
 
 export async function toggleBookmark(userId: string, jobId: string): Promise<{ bookmarked: boolean; bookmarkId?: string }> {
@@ -866,36 +652,6 @@ export async function toggleBookmark(userId: string, jobId: string): Promise<{ b
     }
   }
 
-  if (!db) {
-    return { bookmarked: isBookmarked, bookmarkId: newBookmarkId };
-  }
-
-  // Try Firestore update
-  try {
-    const snapshot = await db.collection('bookmarks')
-      .where('userId', '==', userId)
-      .where('jobId', '==', jobId)
-      .get();
-    
-    if (!snapshot.empty) {
-      const deleteBatch = db.batch();
-      snapshot.forEach(doc => {
-        deleteBatch.delete(doc.ref);
-      });
-      await deleteBatch.commit();
-    } else if (newBookmarkId) {
-      const newBookmark: Bookmark = {
-        id: newBookmarkId,
-        userId,
-        jobId,
-        createdAt: new Date().toISOString()
-      };
-      await db.collection('bookmarks').doc(newBookmarkId).set(newBookmark);
-    }
-  } catch (err) {
-    console.warn('[Firestore] toggleBookmark warning (updated in local db.json only):', err instanceof Error ? err.message : err);
-  }
-
   return { bookmarked: isBookmarked, bookmarkId: newBookmarkId };
 }
 
@@ -918,32 +674,12 @@ export async function getUsers(): Promise<User[]> {
 
       return users;
     } catch (err: any) {
-      console.warn('[Supabase] getUsers warning (falling back to Firestore/local DB):', err.message);
+      console.warn('[Supabase] getUsers warning (falling back to local DB):', err.message);
     }
   }
 
-  if (!db) {
-    const local = readLocalDb();
-    return local.users;
-  }
-  try {
-    const snapshot = await db.collection('users').get();
-    const users: User[] = [];
-    snapshot.forEach(doc => {
-      users.push(doc.data() as User);
-    });
-
-    // Sync with local db.json
-    const local = readLocalDb();
-    local.users = users;
-    writeLocalDb(local);
-
-    return users;
-  } catch (err) {
-    console.warn('[Firestore] getUsers warning (falling back to local db.json):', err instanceof Error ? err.message : err);
-    const local = readLocalDb();
-    return local.users;
-  }
+  const local = readLocalDb();
+  return local.users;
 }
 
 export async function loginOrRegister(email: string, name: string, avatar: string, role: 'user' | 'admin' = 'user'): Promise<User> {
@@ -980,15 +716,6 @@ export async function loginOrRegister(email: string, name: string, avatar: strin
     }
   }
 
-  // Try Firestore write if available
-  if (db) {
-    try {
-      await db.collection('users').doc(id).set(newUser);
-    } catch (err) {
-      console.warn('[Firestore] loginOrRegister warning (saved to local db.json only):', err instanceof Error ? err.message : err);
-    }
-  }
-
   return newUser;
 }
 
@@ -1011,31 +738,12 @@ export async function getCrawlerLogs(): Promise<CrawlerLog[]> {
 
       return logs;
     } catch (err: any) {
-      console.warn('[Supabase] getCrawlerLogs warning (falling back to Firestore/local DB):', err.message);
+      console.warn('[Supabase] getCrawlerLogs warning (falling back to local DB):', err.message);
     }
   }
 
-  if (!db) {
-    const local = readLocalDb();
-    return local.crawlerLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-  try {
-    const snapshot = await db.collection('crawlerLogs').get();
-    const logs: CrawlerLog[] = [];
-    snapshot.forEach(doc => {
-      logs.push(doc.data() as CrawlerLog);
-    });
-
-    const local = readLocalDb();
-    local.crawlerLogs = logs;
-    writeLocalDb(local);
-
-    return logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  } catch (err) {
-    console.warn('[Firestore] getCrawlerLogs warning (falling back to local db.json):', err instanceof Error ? err.message : err);
-    const local = readLocalDb();
-    return local.crawlerLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
+  const local = readLocalDb();
+  return local.crawlerLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function addCrawlerLog(source: string, status: 'success' | 'failed', message: string): Promise<CrawlerLog> {
@@ -1088,29 +796,6 @@ export async function addCrawlerLog(source: string, status: 'success' | 'failed'
         });
     } catch (err: any) {
       console.warn('[Supabase] addCrawlerLog warning (saved to local db.json only):', err.message);
-    }
-  }
-
-  // Try Firestore write if available
-  if (db) {
-    try {
-      await db.collection('crawlerLogs').doc(id).set(newLog);
-      
-      // Optionally prune old logs in background to prevent unbounded collection size
-      const allLogsSnapshot = await db.collection('crawlerLogs').get();
-      if (allLogsSnapshot.size > 50) {
-        const logs = allLogsSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() as CrawlerLog }));
-        logs.sort((a, b) => new Date(b.data.createdAt).getTime() - new Date(a.data.createdAt).getTime());
-        
-        const logsToDelete = logs.slice(50);
-        const pruneBatch = db.batch();
-        logsToDelete.forEach(log => {
-          pruneBatch.delete(db.collection('crawlerLogs').doc(log.id));
-        });
-        await pruneBatch.commit();
-      }
-    } catch (err) {
-      console.warn('[Firestore] addCrawlerLog warning (saved to local db.json only):', err instanceof Error ? err.message : err);
     }
   }
 

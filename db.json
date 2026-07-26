@@ -172,6 +172,28 @@
       "createdAt": "2026-06-26T15:20:00.000Z",
       "status": "pending",
       "views": 42
+    },
+    {
+      "title": "hioiyhfhf",
+      "company": "fgsgsgdsgdsgsdg",
+      "salary": 10030,
+      "salaryType": "Hourly",
+      "city": "Daejeon",
+      "district": "대덕구",
+      "address": "대전 대덕구 한남로113번길 50 1층",
+      "category": "Restaurant",
+      "workingTime": "19:00 - 22:00",
+      "description": "Rửa bát\nK yc tiếng",
+      "phone": "01092290283",
+      "kakao": "",
+      "line": "",
+      "source": "User",
+      "latitude": 36.34300808941371,
+      "longitude": 127.38850062296916,
+      "status": "approved",
+      "id": "j_95i45bgct",
+      "createdAt": "2026-07-26T17:44:21.649Z",
+      "views": 0
     }
   ],
   "bookmarks": [
@@ -216,6 +238,62 @@
       "status": "success",
       "message": "Đã cập nhật vị trí và khoảng cách cho 8 công việc cafe/tiện lợi quanh Daejeon.",
       "createdAt": "2026-06-27T03:00:00.000Z"
+    },
+    {
+      "id": "l_q8ufef32f",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).",
+      "createdAt": "2026-07-26T17:41:45.404Z"
+    },
+    {
+      "id": "l_91aowhz5l",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).",
+      "createdAt": "2026-07-26T17:41:52.875Z"
+    },
+    {
+      "id": "l_k6t6t3or8",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).",
+      "createdAt": "2026-07-26T17:44:38.755Z"
+    },
+    {
+      "id": "l_hd8fgp9vv",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).",
+      "createdAt": "2026-07-26T17:44:42.798Z"
+    },
+    {
+      "id": "l_jdcn65pgr",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).",
+      "createdAt": "2026-07-26T18:06:36.824Z"
+    },
+    {
+      "id": "l_9rapagx6f",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương (Gemini API Chưa cấu hình hoặc lỗi).",
+      "createdAt": "2026-07-26T18:15:06.291Z"
+    },
+    {
+      "id": "l_j05pd8ipb",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương.",
+      "createdAt": "2026-07-26T18:18:20.580Z"
+    },
+    {
+      "id": "l_r89vmiycn",
+      "source": "Local RegEx Parser",
+      "status": "success",
+      "message": "Phân tích tin tuyển dụng qua thuật toán Regex địa phương.",
+      "createdAt": "2026-07-26T18:18:28.435Z"
     }
   ]
 }
