@@ -87,6 +87,30 @@ export default function App() {
   // Bookmark state
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
   
+  // Geolocation User Location State
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+
+  const handleLocateUser = () => {
+    if (!navigator.geolocation) return;
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  useEffect(() => {
+    handleLocateUser();
+  }, []);
+
   // View/Route control
   const [activeTab, setActiveTab] = useState<string>('jobs');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -748,6 +772,8 @@ export default function App() {
                           onToggleBookmark={handleToggleBookmark}
                           onSelect={(j) => setSelectedJob(j)}
                           isSelected={selectedJob?.id === job.id}
+                          userLocation={userLocation}
+                          onLocateUser={handleLocateUser}
                         />
                       ))}
                     </div>
@@ -784,6 +810,9 @@ export default function App() {
               jobs={displayedJobs}
               selectedJob={selectedJob}
               onSelectJob={(j) => setSelectedJob(j)}
+              userLocation={userLocation}
+              onLocateUser={handleLocateUser}
+              isLocatingUser={isLocating}
             />
 
             {/* MODERN FLOATING FILTER & SEARCH PANEL (Airbnb / Google Maps Inspired) */}
@@ -880,16 +909,13 @@ export default function App() {
               
               {/* Locate GPS / Center button */}
               <button
-                onClick={() => {
-                  if (displayedJobs.length > 0) {
-                    const firstJob = displayedJobs[0];
-                    setSelectedJob(firstJob);
-                  }
-                }}
-                className="w-11 h-11 bg-white/95 backdrop-blur-md text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-xl rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer group"
-                title="Định vị lại trung tâm bản đồ"
+                onClick={handleLocateUser}
+                className={`w-11 h-11 bg-white/95 backdrop-blur-md hover:bg-slate-50 border border-slate-200 shadow-xl rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer group ${
+                  isLocating ? 'text-emerald-600 animate-pulse' : userLocation ? 'text-emerald-600' : 'text-slate-700'
+                }`}
+                title="Định vị GPS vị trí của tôi"
               >
-                <MapPin className="w-5 h-5 text-blue-600 group-hover:animate-bounce" />
+                <MapPin className={`w-5 h-5 ${isLocating ? 'animate-bounce text-emerald-600' : userLocation ? 'text-emerald-600' : 'text-blue-600 group-hover:animate-bounce'}`} />
               </button>
 
               {/* Bookmark Toggle filter */}
@@ -961,6 +987,8 @@ export default function App() {
                             onToggleBookmark={handleToggleBookmark}
                             onSelect={(j) => setSelectedJob(j)}
                             isSelected={selectedJob?.id === job.id}
+                            userLocation={userLocation}
+                            onLocateUser={handleLocateUser}
                           />
                         </div>
                       ))}
@@ -1038,6 +1066,8 @@ export default function App() {
                       isBookmarked={true}
                       onToggleBookmark={handleToggleBookmark}
                       onSelect={(j) => setSelectedJob(j)}
+                      userLocation={userLocation}
+                      onLocateUser={handleLocateUser}
                     />
                   ))}
                 </div>
@@ -1091,6 +1121,20 @@ export default function App() {
         onLoginSuccess={handleLogin}
         promptMessage={authPromptMessage}
       />
+
+      {/* JOB DETAIL DRAWER WITH DISTANCE & DIRECTIONS */}
+      {selectedJob && (
+        <JobDetailDrawer
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          isBookmarked={bookmarkedIds.includes(selectedJob.id)}
+          onToggleBookmark={handleToggleBookmark}
+          currentUser={currentUser}
+          userLocation={userLocation}
+          onLocateUser={handleLocateUser}
+          isLocatingUser={isLocating}
+        />
+      )}
 
     </div>
   );

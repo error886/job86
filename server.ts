@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import path from 'path';
-import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { 
@@ -19,12 +19,10 @@ import {
   loginOrRegister, 
   getCrawlerLogs, 
   addCrawlerLog,
-  initializeDb
+  initializeDb,
+  checkSupabaseConnection
 } from './server/db';
 import { JobCategory, Job } from './src/types';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -63,20 +61,17 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 // GET /api/db-status - Check Supabase & Firestore connection status
-app.get('/api/db-status', (req: Request, res: Response) => {
-  const isSupabaseConfigured = Boolean(
-    process.env.SUPABASE_URL && 
-    (process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY)
-  );
+app.get('/api/db-status', async (req: Request, res: Response) => {
+  const supabaseStatus = await checkSupabaseConnection();
+  const isSupabaseConfigured = supabaseStatus.connected;
 
   res.json({
-    activeDatabase: isSupabaseConfigured ? 'Supabase' : 'Firebase Firestore & Local DB',
+    activeDatabase: isSupabaseConfigured ? 'Supabase' : 'Local DB fallback',
     supabase: {
+      configured: supabaseStatus.configured,
       connected: isSupabaseConfigured,
       url: process.env.SUPABASE_URL || null,
-      message: isSupabaseConfigured 
-        ? 'Đã kết nối thành công với Supabase.' 
-        : 'Chưa kết nối Supabase. Chưa cấu hình SUPABASE_URL và SUPABASE_KEY trong biến môi trường (.env).'
+      message: supabaseStatus.message
     },
     firebase: {
       configured: true,

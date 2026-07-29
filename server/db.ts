@@ -3,26 +3,63 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@supabase/server/core';
 import { User, Job, Bookmark, CrawlerLog } from '../src/types';
 
 // --- SUPABASE CONFIGURATION ---
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 
 export let supabase: any = null;
 
-if (supabaseUrl && supabaseKey) {
+if (supabaseUrl && supabaseSecretKey) {
   try {
-    supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createAdminClient();
     console.log('[Supabase] Client initialized successfully.');
   } catch (err: any) {
     console.error('[Supabase] Initialization error:', err.message);
   }
 } else {
   console.log('[Supabase] No Supabase credentials found. Running with local db.json storage fallback.');
+}
+
+export async function checkSupabaseConnection(): Promise<{
+  configured: boolean;
+  connected: boolean;
+  message: string;
+}> {
+  const configured = Boolean(supabaseUrl && supabaseSecretKey);
+
+  if (!supabase) {
+    return {
+      configured,
+      connected: false,
+      message: configured
+        ? 'Không thể khởi tạo Supabase client. Kiểm tra lại cấu hình server.'
+        : 'Chưa cấu hình SUPABASE_URL và SUPABASE_SECRET_KEY trong .env.'
+    };
+  }
+
+  try {
+    const { error } = await supabase.from('jobs').select('id', { head: true }).limit(1);
+    if (error) throw error;
+
+    return {
+      configured: true,
+      connected: true,
+      message: 'Đã kết nối thành công với Supabase.'
+    };
+  } catch (err: any) {
+    console.warn('[Supabase] Connection check failed:', err.message);
+    return {
+      configured: true,
+      connected: false,
+      message: `Không thể kết nối Supabase: ${err.message}`
+    };
+  }
 }
 
 // --- SUPABASE DATA MAPPING HELPERS ---

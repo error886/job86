@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
-import { X, Heart, MapPin, Calendar, MessageSquare, Phone, Send, Info, Eye, ExternalLink, BookmarkCheck } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Heart, MapPin, Calendar, MessageSquare, Phone, Send, Info, Eye, ExternalLink, BookmarkCheck, Navigation, Compass, RefreshCw, Footprints, ChevronDown, ChevronUp } from 'lucide-react';
 import { Job } from '../types';
+import { calculateDistanceKm, formatDistance, getNaverMapDirectionUrl, getKakaoMapDirectionUrl, getGoogleMapDirectionUrl } from '../utils/geo';
 
 interface JobDetailDrawerProps {
   job: Job | null;
@@ -13,6 +14,9 @@ interface JobDetailDrawerProps {
   isBookmarked: boolean;
   onToggleBookmark: (jobId: string) => void;
   currentUser: any;
+  userLocation?: { lat: number; lng: number } | null;
+  onLocateUser?: () => void;
+  isLocatingUser?: boolean;
 }
 
 export default function JobDetailDrawer({ 
@@ -20,14 +24,23 @@ export default function JobDetailDrawer({
   onClose, 
   isBookmarked, 
   onToggleBookmark,
-  currentUser
+  currentUser,
+  userLocation,
+  onLocateUser,
+  isLocatingUser = false
 }: JobDetailDrawerProps) {
   if (!job) return null;
 
   const [mobileHeightPercent, setMobileHeightPercent] = useState(65);
+  const [isMinimized, setIsMinimized] = useState(false);
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
+
+  // Reset minimized state when job changes
+  useEffect(() => {
+    setIsMinimized(false);
+  }, [job?.id]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     isDragging.current = true;
@@ -115,6 +128,30 @@ export default function JobDetailDrawer({
     return labels[source] || source;
   };
 
+  // Compact floating button when minimized to view full clean map route
+  if (isMinimized) {
+    return (
+      <div className="fixed top-20 right-4 sm:top-24 sm:right-6 z-[1200] animate-in fade-in zoom-in duration-300">
+        <button
+          onClick={() => setIsMinimized(false)}
+          className="px-4 py-2.5 bg-slate-900/95 hover:bg-slate-800 backdrop-blur-md text-white font-extrabold text-xs rounded-full shadow-2xl border border-slate-700/80 flex items-center gap-2.5 cursor-pointer active:scale-95 transition-all hover:border-blue-500/50 group"
+          title="Mở lại thông tin chi tiết việc làm"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="text-slate-300 hidden sm:inline">Đang xem bản đồ:</span>
+          <span className="text-emerald-400 font-extrabold truncate max-w-[120px] sm:max-w-[180px]">{job.title}</span>
+          <span className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-2.5 py-1 rounded-full font-black ml-1 shadow-sm flex items-center gap-1">
+            <ChevronUp className="w-3 h-3" />
+            <span>Hiện thông tin</span>
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div 
       style={typeof window !== 'undefined' && window.innerWidth < 768 ? { height: `${mobileHeightPercent}vh` } : undefined}
@@ -153,6 +190,15 @@ export default function JobDetailDrawer({
             <Heart className="w-4 h-4" fill={isBookmarked ? '#f43f5e' : 'none'} />
           </button>
           
+          {/* Minimize / Slide Down Button */}
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="p-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-500 hover:text-slate-900 cursor-pointer"
+            title="Tụt thanh chi tiết xuống để xem bản đồ"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+
           <button 
             onClick={onClose}
             className="p-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-500 hover:text-slate-900 cursor-pointer"
@@ -244,6 +290,132 @@ export default function JobDetailDrawer({
               {job.line && <p><strong>Line ID:</strong> {job.line}</p>}
             </div>
           )}
+        </div>
+
+        {/* Distance & Directions Section */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wider flex items-center justify-between">
+            <span>Khoảng cách & Chỉ đường</span>
+            {userLocation && (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                GPS Đã bật
+              </span>
+            )}
+          </h3>
+
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4.5 shadow-xl border border-slate-700/80 space-y-3">
+            {userLocation ? (
+              <>
+                <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-700/80">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+                      <Navigation className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Khoảng cách đến nơi làm</p>
+                      <p className="text-lg font-extrabold text-emerald-400 font-display">
+                        {formatDistance(calculateDistanceKm(userLocation.lat, userLocation.lng, job.latitude, job.longitude))}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={onLocateUser}
+                    disabled={isLocatingUser}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer border border-slate-700"
+                    title="Cập nhật vị trí GPS"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isLocatingUser ? 'animate-spin text-emerald-400' : ''}`} />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setIsMinimized(true)}
+                    className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-blue-400/40"
+                  >
+                    <Footprints className="w-4 h-4 animate-bounce" />
+                    <span>Xem đường đi trực quan trên Bản đồ</span>
+                  </button>
+
+                  <p className="text-[11px] text-slate-300 font-medium flex items-center gap-1 pt-1">
+                    <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mở ứng dụng chỉ đường ngoài:</span>
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <a
+                      href={getNaverMapDirectionUrl(job.latitude, job.longitude, job.title, userLocation?.lat, userLocation?.lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex flex-col items-center justify-center py-2.5 px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] rounded-xl shadow-md transition-all active:scale-95 text-center gap-1"
+                    >
+                      <span>💚 Naver Map</span>
+                    </a>
+                    <a
+                      href={getKakaoMapDirectionUrl(job.latitude, job.longitude, job.title, userLocation?.lat, userLocation?.lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex flex-col items-center justify-center py-2.5 px-2 bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-[11px] rounded-xl shadow-md transition-all active:scale-95 text-center gap-1"
+                    >
+                      <span>💛 Kakao Map</span>
+                    </a>
+                    <a
+                      href={getGoogleMapDirectionUrl(job.latitude, job.longitude, job.title, userLocation?.lat, userLocation?.lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex flex-col items-center justify-center py-2.5 px-2 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-xl shadow-md transition-all active:scale-95 text-center gap-1"
+                    >
+                      <span>🌐 Google Maps</span>
+                    </a>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3 py-1">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-800 text-amber-400 border border-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Navigation className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Chưa bật vị trí GPS của bạn</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                      Hãy cấp quyền định vị để tính khoảng cách chính xác từ nơi bạn ở đến công việc này ({job.city}).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={onLocateUser}
+                    disabled={isLocatingUser}
+                    className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isLocatingUser ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang định vị...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-3.5 h-3.5" />
+                        <span>Bật vị trí & Tính khoảng cách</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={getNaverMapDirectionUrl(job.latitude, job.longitude, job.title)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs rounded-xl transition-all border border-slate-700 cursor-pointer flex items-center gap-1"
+                    title="Xem vị trí xưởng trên Naver Map"
+                  >
+                    <span>Xem Naver</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Schedule & Address details */}

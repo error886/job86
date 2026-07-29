@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { Heart, MapPin, Calendar, ExternalLink, Flame, Sparkles } from 'lucide-react';
+import { Heart, MapPin, Calendar, ExternalLink, Flame, Navigation } from 'lucide-react';
 import { Job } from '../types';
+import { calculateDistanceKm, formatDistance } from '../utils/geo';
 
 interface JobCardProps {
   job: Job;
@@ -13,6 +14,8 @@ interface JobCardProps {
   onToggleBookmark: (jobId: string, e?: React.MouseEvent) => void | Promise<void>;
   onSelect: (job: Job) => void;
   isSelected?: boolean;
+  userLocation?: { lat: number; lng: number } | null;
+  onLocateUser?: () => void;
 }
 
 const JobCard: React.FC<JobCardProps> = ({ 
@@ -20,7 +23,9 @@ const JobCard: React.FC<JobCardProps> = ({
   isBookmarked, 
   onToggleBookmark, 
   onSelect,
-  isSelected = false
+  isSelected = false,
+  userLocation,
+  onLocateUser
 }) => {
   
   // Custom Category Styling
@@ -117,7 +122,7 @@ const JobCard: React.FC<JobCardProps> = ({
       </div>
 
       {/* Salary & Location */}
-      <div className="grid grid-cols-2 gap-2 border-y border-slate-100/80 py-3 mb-4">
+      <div className="grid grid-cols-2 gap-2 border-y border-slate-100/80 py-3 mb-3">
         <div>
           <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Mức Lương</span>
           <p className="text-sm font-extrabold text-blue-600 mt-0.5 font-display">
@@ -125,12 +130,52 @@ const JobCard: React.FC<JobCardProps> = ({
           </p>
         </div>
         <div>
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Khu Vực</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Khu Vực</span>
+          </div>
           <p className="text-xs font-bold text-slate-700 mt-1 flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
             <span className="truncate">{job.city} {job.district}</span>
           </p>
         </div>
+      </div>
+
+      {/* Distance Badge / GPS Trigger */}
+      <div className="mb-3">
+        {userLocation && job.latitude && job.longitude ? (
+          (() => {
+            const distKm = calculateDistanceKm(userLocation.lat, userLocation.lng, job.latitude, job.longitude);
+            const distStr = formatDistance(distKm);
+            const walkMins = Math.max(1, Math.round((distKm / 4.5) * 60));
+
+            return (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-extrabold shadow-2xs">
+                  <Navigation className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                  <span>Cách bạn: {distStr}</span>
+                </div>
+                {distKm > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100/90 px-2.5 py-1 rounded-full border border-slate-200/80">
+                    <span>🚶🏼</span>
+                    <span>{walkMins < 60 ? `~${walkMins} phút đi bộ` : `~${(walkMins / 60).toFixed(1)} giờ`}</span>
+                  </span>
+                )}
+              </div>
+            );
+          })()
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onLocateUser) onLocateUser();
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200 hover:border-emerald-200 text-[11px] font-extrabold transition-all cursor-pointer"
+            title="Nhấn để lấy vị trí hiện tại và tính khoảng cách"
+          >
+            <Navigation className="w-3 h-3 text-slate-400" />
+            <span>Định vị khoảng cách</span>
+          </button>
+        )}
       </div>
 
       {/* Footer information */}
